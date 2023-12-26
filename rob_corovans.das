@@ -64,6 +64,7 @@ var
     footprints: Footprints <- Footprints()
 
 def sceneInit()
+    initEntities()
     generateMap()
 
 def sceneUpdate(dt: float)
@@ -77,6 +78,11 @@ def sceneUpdate(dt: float)
 
 def sceneRender()
     cameraRender()
+
+def initEntities()
+    player.distToFootprint = random_float(seed) * player.stepLen
+
+    storm.windDir = randNormVec()
 
 /*
  * ===============================================================================================================
@@ -103,7 +109,7 @@ def cameraRender()
     camera.screenPosition = float2(camera.position.x - float(get_screen_width()/2), camera.position.y - float(get_screen_height()/2))
 
     mapRender()
-    // footprintsRender()
+    footprintsRender()
     playerRender()
     elfRender()
     corovanRender()
@@ -123,7 +129,7 @@ let
     debugTextColor: uint = 0xEEDDAABB
 
     exitTextFontSize: int = 36
-    exitTextFontColor: uint = 0xEEDDCC
+    exitTextFontColor: uint = 0xFFEEDDCC
     
 def guiRender()
     debugRender()
@@ -139,7 +145,7 @@ def debugRender()
     text_out(debugTextOffset, y, "Взгляд: ({player.lookPoint})", debugTextColor)  
 
     y += debugTextOffset
-    text_out(debugTextOffset, y, "", debugTextColor) 
+    text_out(debugTextOffset, y, "Индексы кольца: {footprints.startInd} - {footprints.endInd}", debugTextColor) 
 
 def exitFromMapRender(transparent: float)
     set_font_size(exitTextFontSize)
@@ -149,10 +155,10 @@ def exitFromMapRender(transparent: float)
 def lostInDesertRender()
     set_font_size(exitTextFontSize)
     set_font_name("Shadower.ttf")
-    text_out(getCenteringTextOffset(23, exitTextFontSize), 150, "Вы затерялись в песках", exitTextFontColor + 0xFF000000)
+    text_out(getCenteringTextOffset(23, exitTextFontSize), 150, "Вы затерялись в песках", exitTextFontColor)
 
     set_font_size(exitTextFontSize / 2)
-    text_out(getCenteringTextOffset(38, exitTextFontSize / 2), 150 + exitTextFontSize * 2, "[нажмите F5, чтобы начать путишествие]", exitTextFontColor + 0xFF000000)
+    text_out(getCenteringTextOffset(38, exitTextFontSize / 2), 150 + exitTextFontSize * 2, "[нажмите F5, чтобы начать путишествие]", exitTextFontColor)
 
 def getCenteringTextOffset(len: int; fontSize: int): int
     return (get_screen_width() - fontSize * (len / 2)) / 2
@@ -174,9 +180,9 @@ struct Player
     moveSpeed: float = 30.0
     speed: float2
 
-    stepLen: float = 30.0
-    distToFootprint: float = random_float(seed) * stepLen
-    leftFootprint: bool = bool(random_int(seed) % 2)
+    stepLen: float = 60.0
+    distToFootprint: float
+    leftFootprint: bool = false
 
 def playerUpdate(dt: float)
     if !player.alive
@@ -194,13 +200,13 @@ def playerMove(dt: float)
 
     player.distToFootprint -= length(player.speed * dt)
     if player.distToFootprint <= 0.0
-        var footprintOffset = normalize(float2(lookPoint.y, -lookPoint.x))
+        var footprintOffset = normalize(float2(player.speed.y, -player.speed.x)) * 10.0
         if player.leftFootprint
             footprintOffset *= -1.0
 
         addFootprint(player.position + footprintOffset)
         player.leftFootprint = !player.leftFootprint
-        distToFootprint = player.stepLen + random_float(seed) * 10.0 - 5.0
+        player.distToFootprint = player.stepLen + (random_float(seed) - 0.5) * 20.0
 
 def playerSpeedUpdate()
     var moveDir: float2 = float2(0.0, 0.0)
@@ -353,16 +359,16 @@ def mapRender()
 
     for ih in range(startHIndexTitleScreen, endHIndexTitleScreen)
         for iw in range(startWIndexTitleScreen, endWIndexTitleScreen)
-            var titleTransparent: float = getCosLookToObject(map.titles[ih][iw].position) * 10.0 + 238.0
-            var titleProximity: float = proximityToMapBorder(map.titles[ih][iw].position)
-            titleTransparent *= titleProximity + ((1.0 - titleProximity) / 2.0)
+            var transparent: float = getCosLookToObject(map.titles[ih][iw].position) * 10.0 + 238.0
+            var proximity: float = proximityToMapBorder(map.titles[ih][iw].position)
+            transparent *= 0.5 + proximity / 2.0
             
             fill_convex_polygon([[float2[4]
                 map.titles[ih][iw].position - camera.screenPosition; 
                 map.titles[ih + 1][iw].position - camera.screenPosition; 
                 map.titles[ih + 1][iw + 1].position - camera.screenPosition;
                 map.titles[ih][iw + 1].position - camera.screenPosition
-            ]], map.titles[ih][iw].color + floatToTransparent(titleTransparent))
+            ]], map.titles[ih][iw].color + floatToTransparent(transparent))
 
 def proximityToMapBorder(objPos: float2; deep: float = 0.0): float
     let farthestCoord: float = max(abs(objPos.x), abs(objPos.y))
@@ -370,7 +376,7 @@ def proximityToMapBorder(objPos: float2; deep: float = 0.0): float
 
 def titleFromPos(pos: float2): Title
     var posInMap = pos + float2(halfMapSize, halfMapSize)
-    return map.titles[int(posInMap.x / titleSize)][int(posInMap.y / titleSize)]
+    return map.titles[int(posInMap.y / titleSize)][int(posInMap.x / titleSize)]
 
 /*
  * ===============================================================================================================
@@ -397,9 +403,9 @@ struct Corovaner
     moveSpeed: float = 5.0
     speed: float2
 
-    stepLen: float = 30.0
-    distToFootprint: float = random_float(seed) * stepLen
-    leftFootprint: bool = bool(random_int(seed) % 2)
+    stepLen: float = 60.0
+    distToFootprint: float
+    leftFootprint: bool = false
 
 def startCorovan()
     if corovan.isStart
@@ -413,10 +419,11 @@ def startCorovan()
         var corovaner: Corovaner = Corovaner()
         corovaner.position = startPosition
         corovaner.wayPointIndex = 0
-        corovaner.stepLen += random_float(seed) * 10.0 - 5.0
+        corovaner.stepLen += (random_float(seed) - 0.5) * 5.0
+        corovaner.distToFootprint = random_float(seed) * corovaner.stepLen
 
         push(corovan.corovaners, corovaner)
-        startPosition.y += titleSize
+        startPosition.y += titleSize * 2.5
 
 def corovanUpdate(dt: float)
     corovanersUpdate(dt)
@@ -451,13 +458,13 @@ def corovanersUpdate(dt: float)
         // footprint
         corovaner.distToFootprint -= length(corovaner.speed * dt)
         if corovaner.distToFootprint <= 0.0
-            var footprintOffset = normalize(float2(lookPoint.y, -lookPoint.x))
+            var footprintOffset = normalize(float2(corovaner.speed.y, -corovaner.speed.x)) * 10.0
             if corovaner.leftFootprint
                 footprintOffset *= -1.0
 
             addFootprint(corovaner.position + footprintOffset)
             corovaner.leftFootprint = !corovaner.leftFootprint
-            distToFootprint = corovaner.stepLen + random_float(seed) * 10.0 - 5.0
+            corovaner.distToFootprint = corovaner.stepLen + (random_float(seed) - 0.5) * 20.0
 
         // speed
         corovaner.speed += normalize(moveDir) * corovaner.moveSpeed
@@ -508,7 +515,7 @@ let
     stormArea: float = float(get_screen_width()) * 0.8
     
     maxWindForce: float = 200.0
-    windDirTimer: float = 23.0
+    windDirTimer: float = 7.0
     windForceTimer: float = 37.0
 
 struct Storm
@@ -574,7 +581,8 @@ def windUpdate(dt: float)
     storm.windForceChangeTimer -= dt
 
     if storm.windDirChangeTimer <= 0.0
-        storm.windDirChangeTimer = windDirTimer + (random_float(seed) - 0.5) * 10.0
+        storm.windDirChangeTimer = windDirTimer + (random_float(seed) - 0.5) * windDirTimer
+        storm.windDir = normalize(storm.windDir + randNormVec() / 3.0)
 
     if storm.windForceChangeTimer <= 0.0
         storm.windForceChangeTimer = windForceTimer + (random_float(seed) - 0.5) * 10.0
@@ -604,9 +612,9 @@ def stormRender()
 */
  
 let
-    maxCountFootprint: int = 4096
-    maxLifetimeFootprint: int = 50
-    footprintColorOffset: float3 = float3(5.0, 10.0, 8.0)
+    maxCountFootprint: int = 1024
+    maxLifetimeFootprint: float = 50.0
+    footprintColorOffset: float3 = float3(20.0, 30.0, 20.0)
  
 struct Footprints
     ring: Footprint[maxCountFootprint]
@@ -615,7 +623,7 @@ struct Footprints
  
 struct Footprint
     position: float2
-    color: float3
+    color: uint
  
     lifetimeStart: float
     lifetime: float
@@ -626,9 +634,9 @@ def addFootprint(position: float2)
 
     var footprint: Footprint
     footprint.position = position
-    footprint.lifetimeStart = float(maxLifetimeFootprint - random_int(seed) % (maxLifetimeFootprint - maxLifetimeFootprint / 3))
+    footprint.lifetimeStart = maxLifetimeFootprint * random_float(seed)
     footprint.lifetime = footprint.lifetimeStart
-    footprint.color = hexToFloat3(titleFromPos(footprint.position).color)
+    footprint.color = float3ToHex(hexToFloat3(titleFromPos(footprint.position).color) - footprintColorOffset)
  
     footprints.ring[footprints.endInd] = footprint
     footprints.endInd++
@@ -637,7 +645,7 @@ def addFootprint(position: float2)
     if footprints.endInd == footprints.startInd
         footprints.startInd++
  
-def getFootprintIndexs(): iterator<int>
+def getFootprintIndices(): iterator<int>
     var it: iterator<int>
     if footprints.startInd <= footprints.endInd
         it <- [[for ind in range(footprints.startInd, footprints.endInd); ind + 0; where true]]
@@ -646,25 +654,27 @@ def getFootprintIndexs(): iterator<int>
     return <- it
  
 def footprintsUpdate(dt: float)
-    for ind in getFootprintIndexs()
-        var footprint: Footprint = footprints.ring[ind] 
-        if footprint.lifetime <= 0.0
-            footprints.startInd++
-            if footprints.startInd > maxCountFootprint
-                footprints.startInd = 0
-                continue
+    for ind in getFootprintIndices()
+        if footprints.ring[ind].lifetime <= 0.0
+            if ind == footprints.startInd
+                footprints.startInd++
+                if footprints.startInd > maxCountFootprint
+                    footprints.startInd = 0
+            continue
  
         footprints.ring[ind].lifetime -= dt
  
 def footprintsRender()
-    for ind in getFootprintIndexs()
+    for ind in getFootprintIndices()
         var footprint: Footprint = footprints.ring[ind] 
-        var transparent: float = 255.0
+        var transparent: float = getCosLookToObject(footprint.position) * 125.0 + 105.0
+        transparent *= proximityToMapBorder(footprint.position)
+        transparent *= footprint.lifetime / footprint.lifetimeStart
         fill_circle(
             footprint.position.x - camera.screenPosition.x, 
             footprint.position.y - camera.screenPosition.y, 
-            5.0, 
-            float3ToHex(footprint.color - (footprintColorOffset * footprint.lifetime / footprint.lifetimeStart) + floatToTransparent(transparent)
+            7.0, 
+            footprint.color + floatToTransparent(transparent)
         )
 
 /*
@@ -699,3 +709,96 @@ def distTo(pos1: float2; pos2: float2): float
 def squareDistTo(pos1: float2; pos2: float2): float
     var resVec = pos2 - pos1
     return max(abs(resVec.x), abs(resVec.y))
+
+def randNormVec(): float2
+    return float2(
+        (random_float(seed) - 0.5) * 2.0,
+        (random_float(seed) - 0.5) * 2.0
+    )
+    
+/*
+ * ===============================================================================================================
+ *
+ * DIALOGOS
+ *
+ * ===============================================================================================================
+ */
+
+/*
+Под палящим Солнцем
+Нет ничего лучше
+Припекает.. Ты не находишь?
+
+===(акт 1)
+Ты тоже пришёл сюда грабить корованы?
+
+Знаешь, а я ведь тоже когда-то был корованщиком. Ходил туда-обратно.
+
+И мысли мои были заняты не 
+Да, вот так просто. Корова.
+Когда-то, когда эта пустыня зеленела …
+Это очень удобно: корова может быть как вьючным животным, так и источником пищи.
+Такой подход позволял древним корованерам пересекать огромные расстояния.
+Не смейся! Этимология — это тебе не хухры-мухры. Она может пролить свет на самые тёмные, самые древние времена человеческой цивилизации. 
+
+Если хочешь можешь пока вздремнуть или позагорать. Я обязательно тебе скажу, когда увижу корован.
+Можешь взять мой плащ, а то потом ещё неделю будешь песок из себя вытряхивать.
+Что-то не так? 
+Мне показалось, или ты стесняешься снимать при мне броню?
+Ты же не боишься, что я тебя ограблю? только потому, что я, как и ты, граблю корованы.
+
+===(акт 3)
+Что это у тебя тут? на воротнике.
+ХА! купился! у тебя и воротника-та нет.
+Когда ты направился ко мне во второй раз, ты напомнил мне ребёнка спешащего 
+*задумался*
+Вот как интересно получается: когда я только встретил тебя, я собирался тебя ограбить. 
+Я был готов вытряхнуть тебя из твоих же сапог. Поднять за ноги и трясти как свежепойманную рыбу. 
+А сейчас даже не думаю об этом.
+Всего два рейда, а я уже думаю о тебе как о напарнике… Мда.
+Напарник
+на-па-рник
+Никогда бы не подумал, что вновь произнесу это слово. После всего того, что.. … Ну да не будем о этом.
+
+*напряжённо молчит*
+Знаешь, мне нужно кое в чём тебе признаться. 
+На самом деле я не эльф. Я КАДЖИТ. И зовут меня М’Айк. 
+Серьёзно! Мы же в пустыне! Какие тут могут быть эльфы?!
+Просто меня попросили побыть эльфом. Для тебя.
+Нет, нет, я не жалуюсь. Кто-то же должен быть эльфом. Так уж всё устроено.
+Я при деле. И довольно приятном. Можно было бы даже сказать “не пыльным”, если бы не… ну, ты знаешь.. песок. Он здесь повсюду. Даже в воздухе.
+Мда.
+Ладно. Классно поболтали. Я наверное пойду. Но если ты захочешь, я останусь. Только скажи.
+
+Ты свободен, как птица. Мохнатая, четырёхлапая, метр семьдесят пять в холке птица.
+Я бы хотел ещё подождать корована. С тобой. 
+
+Мур-мур-мяу
+
+===== ===== ===== ===== =====(на горизонте)
+Я.. я вижу их. Вон там, за тем барханом. Это КОРОВАНЩИКИ!
+Это он! Я снова его вижу! КОРОВАН на горизонте!
+Потом договорим! Грабь КОРОВАНЫ!
+
+===== ===== ===== ===== =====(корованщики)
+Что? Нет. Меня грабить нельзя. Я против и отказываюсь отдавать вам все свои ценности.
+Подходите! У меня Вы найдёте самые удивительные товары! Что Вам приглянулось? В смысле ничего? В смысле хотите ограбить?
+Конечно меня можно ограбить. У Вас ведь есть два экземпляра 142ой справки? Ну формы А142.. той, что для отчётности о проделанном грабеже.
+Вы точно хотите ограбить корован? Я слышал это вредно для здоровья.
+Отличная шутка) Я почти поверил, что Вы настоящий грабитель. Такие круглые глаза, такой озлобленный взгляд исподлобья. Потрясающе.
+
+===
+У нас самые низкие цены в Анк-Морпорке, за счёт того, что мы экономим на охране корована.
+Я бы с радостью дал себя ограбить, но сегодня последний четверг месяца - не приёмный день для грабителей - увы.
+
+===== ===== ===== ===== =====(описание)
+Диалоговая игра, сделанная во время хакатона по daScript по известному всем тз (https://wikireality.ru/wiki/%D0%93%D1%80%D0%B0%D0%B1%D0%B8%D1%82%D1%8C_%D0%BA%D0%BE%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D1%8B)
+
+User Story
+
+Фичи
+можно грабить корованы
+ветер влияет на скорость передвижения
+
+Установка
+*/
