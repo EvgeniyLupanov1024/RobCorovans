@@ -192,7 +192,7 @@ def playerMove(dt: float)
     if player.maxPositionCoord > deathBorderArea
         player.alive = false
 
-    player.distToFootprint -= player.speed * dt
+    player.distToFootprint -= length(player.speed * dt)
     if player.distToFootprint <= 0.0
         var footprintOffset = normalize(float2(lookPoint.y, -lookPoint.x))
         if player.leftFootprint
@@ -449,7 +449,7 @@ def corovanersUpdate(dt: float)
             corovaner.wayPointIndex += 1
 
         // footprint
-        corovaner.distToFootprint -= corovaner.speed * dt
+        corovaner.distToFootprint -= length(corovaner.speed * dt)
         if corovaner.distToFootprint <= 0.0
             var footprintOffset = normalize(float2(lookPoint.y, -lookPoint.x))
             if corovaner.leftFootprint
@@ -506,13 +506,20 @@ def elfRender()
 let
     maxSwirlCount: int = 256
     stormArea: float = float(get_screen_width()) * 0.8
+    
     maxWindForce: float = 200.0
+    windDirTimer: float = 23.0
+    windForceTimer: float = 37.0
 
 struct Storm
     swirls: Swirl[maxSwirlCount]
     swirlInd: int = 0
+
     windDir: float2 = float2(1.0, 0.0)
     windForce: float = 100.0
+    
+    windDirChangeTimer: float = 0.0
+    windForceChangeTimer: float = 0.0
 
 struct Swirl
     position: float2
@@ -561,10 +568,22 @@ def swirlsUpdate(dt: float)
         else
             swirl.speed += storm.windDir * storm.windForce / swirl.size
             swirl.transparent = swirl.distanceWented * 255.0 / swirl.maxDistance
-        
 
 def windUpdate(dt: float)
-    return
+    storm.windDirChangeTimer -= dt
+    storm.windForceChangeTimer -= dt
+
+    if storm.windDirChangeTimer <= 0.0
+        storm.windDirChangeTimer = windDirTimer + (random_float(seed) - 0.5) * 10.0
+
+    if storm.windForceChangeTimer <= 0.0
+        storm.windForceChangeTimer = windForceTimer + (random_float(seed) - 0.5) * 10.0
+        
+        var windForceOffset: float = (random_float(seed) - 0.5) * maxWindForce
+        if storm.windForce + windForceOffset > maxWindForce || storm.windForce + windForceOffset < maxWindForce
+            storm.windForce -= windForceOffset
+        else 
+            storm.windForce += windForceOffset
 
 def stormRender()
     for swirl in storm.swirls
