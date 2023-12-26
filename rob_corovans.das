@@ -91,14 +91,11 @@ struct Camera
     screenPosition: float2 = float2(0, 0)
 
     moveSpeed: float = 3.0
-    moveSpeedMax: float = 800.0
     speed: float2
 
 def cameraUpdate(dt: float)
     camera.position += camera.speed * dt
     camera.speed += (player.position - camera.position) * camera.moveSpeed
-    if length(camera.speed) > camera    .moveSpeedMax
-        camera.speed = normalize(camera.speed) * camera.moveSpeedMax
 
     camera.speed *= 0.8
 
@@ -167,7 +164,6 @@ def getCenteringTextOffset(len: int; fontSize: int): int
  *
  * ===============================================================================================================
  */
-
 struct Player
     position: float2 = float2(0, 0)
     maxPositionCoord: float
@@ -176,8 +172,11 @@ struct Player
     alive: bool = true
 
     moveSpeed: float = 30.0
-    moveSpeedMax: float = 600.0
     speed: float2
+
+    stepLen: float = 30.0
+    distToFootprint: float = random_float(seed) * stepLen
+    leftFootprint: bool = bool(random_int(seed) % 2)
 
 def playerUpdate(dt: float)
     if !player.alive
@@ -192,6 +191,16 @@ def playerMove(dt: float)
     player.maxPositionCoord = max(abs(player.position.x), abs(player.position.y))
     if player.maxPositionCoord > deathBorderArea
         player.alive = false
+
+    player.distToFootprint -= player.speed * dt
+    if player.distToFootprint <= 0.0
+        var footprintOffset = normalize(float2(lookPoint.y, -lookPoint.x))
+        if player.leftFootprint
+            footprintOffset *= -1.0
+
+        addFootprint(player.position + footprintOffset)
+        player.leftFootprint = !player.leftFootprint
+        distToFootprint = player.stepLen + random_float(seed) * 10.0 - 5.0
 
 def playerSpeedUpdate()
     var moveDir: float2 = float2(0.0, 0.0)
@@ -217,8 +226,6 @@ def playerSpeedUpdate()
 
     player.speed += moveDir * player.moveSpeed
     player.speed *= 0.9
-    if length(player.speed) > player.moveSpeedMax
-        player.speed = normalize(player.speed) * player.moveSpeedMax 
 
 def playerLookUpdate()
     player.lookPoint = camera.screenPosition + get_mouse_position() - player.position
@@ -388,8 +395,11 @@ struct Corovaner
     isRobbed: bool = false
 
     moveSpeed: float = 5.0
-    moveSpeedMax: float = 600.0
     speed: float2
+
+    stepLen: float = 30.0
+    distToFootprint: float = random_float(seed) * stepLen
+    leftFootprint: bool = bool(random_int(seed) % 2)
 
 def startCorovan()
     if corovan.isStart
@@ -403,6 +413,7 @@ def startCorovan()
         var corovaner: Corovaner = Corovaner()
         corovaner.position = startPosition
         corovaner.wayPointIndex = 0
+        corovaner.stepLen += random_float(seed) * 10.0 - 5.0
 
         push(corovan.corovaners, corovaner)
         startPosition.y += titleSize
@@ -431,15 +442,26 @@ def corovanersUpdate(dt: float)
         if corovaner.wayPointIndex == length(map.road) - 1
             corovaner.alive = false
 
+        // position
         corovaner.position += corovaner.speed * dt        
         var moveDir: float2 = map.road[corovaner.wayPointIndex] - corovaner.position
         if length(moveDir) < comeRange
             corovaner.wayPointIndex += 1
 
+        // footprint
+        corovaner.distToFootprint -= corovaner.speed * dt
+        if corovaner.distToFootprint <= 0.0
+            var footprintOffset = normalize(float2(lookPoint.y, -lookPoint.x))
+            if corovaner.leftFootprint
+                footprintOffset *= -1.0
+
+            addFootprint(corovaner.position + footprintOffset)
+            corovaner.leftFootprint = !corovaner.leftFootprint
+            distToFootprint = corovaner.stepLen + random_float(seed) * 10.0 - 5.0
+
+        // speed
         corovaner.speed += normalize(moveDir) * corovaner.moveSpeed
         corovaner.speed *= 0.9
-        if length(corovaner.speed) > corovaner.moveSpeedMax
-            corovaner.speed = normalize(corovaner.speed) * corovaner.moveSpeedMax
 
 def corovanRender()
     for corovaner in corovan.corovaners
@@ -497,6 +519,7 @@ struct Swirl
     distanceWented: float = 0.0
     maxDistance: float
     speed: float2
+    size: float
 
     transparent: float = 0.0
     alive: bool = false
@@ -514,6 +537,7 @@ def addSwirl()
             player.position.y + (random_float(seed) * stormArea * 2.0) - stormArea
         )
         swirl.maxDistance = storm.windForce * (random_float(seed) + 0.5)
+        swirl.size = random_float(seed) * 10.0 + 5.0
         swirl.alive = true
 
         storm.swirls[storm.swirlInd] = swirl
@@ -535,7 +559,7 @@ def swirlsUpdate(dt: float)
             if swirl.transparent < 5.0
                 swirl.alive = false
         else
-            swirl.speed += storm.windDir * storm.windForce
+            swirl.speed += storm.windDir * storm.windForce / swirl.size
             swirl.transparent = swirl.distanceWented * 255.0 / swirl.maxDistance
         
 
@@ -544,11 +568,11 @@ def windUpdate(dt: float)
 
 def stormRender()
     for swirl in storm.swirls
-        var transparent: float = ((getCosLookToObject(swirl.position) + 1.0) / 2.0) * swirl.transparent
+        var transparent: float = ((getCosLookToObject(swirl.position) + 1.05) / 2.0) * swirl.transparent
         fill_circle(
             swirl.position.x - camera.screenPosition.x, 
             swirl.position.y - camera.screenPosition.y, 
-            6.0, 
+            swirl.size, 
             0xEEEEBB + floatToTransparent(transparent)
         )
 
@@ -574,16 +598,17 @@ struct Footprint
     position: float2
     color: float3
  
+    lifetimeStart: float
     lifetime: float
-    lifeProgress: float = 1.0
  
 def addFootprint(position: float2)
     if (abs(position.x) > halfMapSize || abs(position.y) > halfMapSize)
         return
 
-    var footprint: Footprint = Footprint()
+    var footprint: Footprint
     footprint.position = position
-    footprint.lifetime = float(maxLifetimeFootprint - random_int(seed) % (maxLifetimeFootprint - maxLifetimeFootprint / 3))
+    footprint.lifetimeStart = float(maxLifetimeFootprint - random_int(seed) % (maxLifetimeFootprint - maxLifetimeFootprint / 3))
+    footprint.lifetime = footprint.lifetimeStart
     footprint.color = hexToFloat3(titleFromPos(footprint.position).color)
  
     footprints.ring[footprints.endInd] = footprint
@@ -611,7 +636,6 @@ def footprintsUpdate(dt: float)
                 continue
  
         footprints.ring[ind].lifetime -= dt
-        // footprints.ring[ind].lifeProgress = 
  
 def footprintsRender()
     for ind in getFootprintIndexs()
@@ -621,7 +645,7 @@ def footprintsRender()
             footprint.position.x - camera.screenPosition.x, 
             footprint.position.y - camera.screenPosition.y, 
             5.0, 
-            float3ToHex(footprint.color - footprintColorOffset * footprint.lifeProgress) + floatToTransparent(transparent)
+            float3ToHex(footprint.color - (footprintColorOffset * footprint.lifetime / footprint.lifetimeStart) + floatToTransparent(transparent)
         )
 
 /*
