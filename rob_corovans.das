@@ -82,7 +82,7 @@ def sceneRender()
 def initEntities()
     player.distToFootprint = random_float(seed) * player.stepLen
 
-    storm.windDir = randNormVec()
+    storm.windDir = randVec()
 
 /*
  * ===============================================================================================================
@@ -110,10 +110,14 @@ def cameraRender()
 
     mapRender()
     footprintsRender()
+
     playerRender()
     elfRender()
     corovanRender()
+
     stormRender()
+
+    InteractableRender()
     guiRender()
 
 /*
@@ -146,6 +150,9 @@ def debugRender()
 
     y += debugTextOffset
     text_out(debugTextOffset, y, "Индексы кольца: {footprints.startInd} - {footprints.endInd}", debugTextColor) 
+
+    y += debugTextOffset
+    text_out(debugTextOffset, y, "Ветер: {storm.windDir} | {storm.windForce}", debugTextColor)
 
 def exitFromMapRender(transparent: float)
     set_font_size(exitTextFontSize)
@@ -381,6 +388,65 @@ def titleFromPos(pos: float2): Title
 /*
  * ===============================================================================================================
  *
+ * INTERACTABLE
+ *
+ * ===============================================================================================================
+ */
+
+let
+    interactDist: float = titleSize * 2.5
+    interactTextTranparentStep: float = 16.0
+
+struct Interactable
+    position: float2
+    interactText: string = "[F] interact"
+    interactTextTranparent: float = 0.0
+
+def getNearestInteract(): Interactable?
+    var minDist: float = interactDist
+    var curDist: float
+    var pNearestInteract: Interactable? = null
+
+    // corovaners
+    for interactObj in corovan.corovaners
+        curDist = distTo(player.position, interactObj.position)
+        if curDist >= minDist
+            continue
+
+        minDist = curDist
+        pNearestInteract = unsafe(addr(interactObj))
+
+    // elf
+    curDist = distTo(player.position, elf.position)
+    if curDist < minDist
+        minDist = curDist
+        pNearestInteract = unsafe(addr(elf))
+
+    unsafe
+        return pNearestInteract
+
+def InteractableUpdate(dt: float)
+    return
+
+def InteractableRender()
+    var pNearestInteract: Interactable? = getNearestInteract()
+    if pNearestInteract == null
+        return
+
+    var nearestInteract: Interactable = *pNearestInteract
+    var transparent: float = getCosLookToObject(nearestInteract.position) * 125.0 + 125.0
+    transparent *= proximityToMapBorder(nearestInteract.position, deepTransparentArea)
+    fill_rect(
+        nearestInteract.position.x - camera.screenPosition.x, 
+        nearestInteract.position.y - camera.screenPosition.y, 
+        50.0,
+        100.0, 
+        0xEEEEBB + floatToTransparent(transparent)
+    )
+
+/*
+ * ===============================================================================================================
+ *
  * COROVANS
  *
  * ===============================================================================================================
@@ -395,7 +461,7 @@ struct Corovan
     corovaners: array<Corovaner>
 
 struct Corovaner: Interactable
-    position: float2
+    override position: float2
     wayPointIndex: int = 0
     alive: bool = true
     isRobbed: bool = false
@@ -474,14 +540,14 @@ def corovanersUpdate(dt: float)
 
 def corovanRender()
     for corovaner in corovan.corovaners
-        var titleTransparent: float = getCosLookToObject(corovaner.position) * 125.0 + 125.0
-        titleTransparent *= proximityToMapBorder(corovaner.position, deepTransparentArea)
+        var transparent: float = getCosLookToObject(corovaner.position) * 125.0 + 125.0
+        transparent *= proximityToMapBorder(corovaner.position, deepTransparentArea)
 
         fill_circle(
             corovaner.position.x - camera.screenPosition.x, 
             corovaner.position.y - camera.screenPosition.y, 
             16.0, 
-            0xCCCCFF + floatToTransparent(titleTransparent)
+            0xCCCCFF + floatToTransparent(transparent)
         )
 
 /*
@@ -493,7 +559,7 @@ def corovanRender()
  */
 
 struct Elf: Interactable
-    position: float2 = float2(600.0, -titleSize)
+    override position: float2 = float2(600.0, -titleSize)
 
     override interactText = "[F] говорить"
 
@@ -586,13 +652,13 @@ def windUpdate(dt: float)
 
     if storm.windDirChangeTimer <= 0.0
         storm.windDirChangeTimer = windDirTimer + (random_float(seed) - 0.5) * windDirTimer
-        storm.windDir = normalize(storm.windDir + randNormVec() / 3.0)
+        storm.windDir = normalize(storm.windDir + randVec() / 3.0)
 
     if storm.windForceChangeTimer <= 0.0
         storm.windForceChangeTimer = windForceTimer + (random_float(seed) - 0.5) * 10.0
         
         var windForceOffset: float = (random_float(seed) - 0.5) * maxWindForce
-        if storm.windForce + windForceOffset > maxWindForce || storm.windForce + windForceOffset < maxWindForce
+        if storm.windForce + windForceOffset > maxWindForce || storm.windForce + windForceOffset < -20.0
             storm.windForce -= windForceOffset
         else 
             storm.windForce += windForceOffset
@@ -684,45 +750,6 @@ def footprintsRender()
 /*
  * ===============================================================================================================
  *
- * INTERACTABLE
- *
- * ===============================================================================================================
- */
-
-let
-    InteractDist: float = titleSize * 1.5
-
-struct Interactable
-    position: float2
-    interactText: string = "[F] interact"
-
-def getNearestInteract(): Interactable?
-    var minDist: float
-    var curDist: float = InteractDist
-    var nearestInteract: &Interactable = null
-
-    // corovaners
-    for interactObj in corovan.corovaners
-        curDist = distTo(player.position, interactObj.position)
-        if curDist >= minDist
-            continue
-
-        minDist = curDist
-        nearestInteract = &interactObj
-
-    // elf
-    curDist = distTo(player.position, elf.position)
-    if curDist < minDist
-        minDist = curDist
-        nearestInteract = interactObj
-
-    return nearestInteract
-
-def 
-
-/*
- * ===============================================================================================================
- *
  * HELPERS
  *
  * ===============================================================================================================
@@ -753,7 +780,7 @@ def squareDistTo(pos1: float2; pos2: float2): float
     var resVec = pos2 - pos1
     return max(abs(resVec.x), abs(resVec.y))
 
-def randNormVec(): float2
+def randVec(): float2
     return float2(
         (random_float(seed) - 0.5) * 2.0,
         (random_float(seed) - 0.5) * 2.0
