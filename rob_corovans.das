@@ -394,7 +394,7 @@ struct Corovan
     isRobbed: bool = false
     corovaners: array<Corovaner>
 
-struct Corovaner
+struct Corovaner: Interactable
     position: float2
     wayPointIndex: int = 0
     alive: bool = true
@@ -406,6 +406,8 @@ struct Corovaner
     stepLen: float = 60.0
     distToFootprint: float
     leftFootprint: bool = false
+
+    override interactText = "[F] грабить"
 
 def startCorovan()
     if corovan.isStart
@@ -490,8 +492,10 @@ def corovanRender()
  * ===============================================================================================================
  */
 
-struct Elf
+struct Elf: Interactable
     position: float2 = float2(600.0, -titleSize)
+
+    override interactText = "[F] говорить"
 
 def elfRender()
     var titleTransparent: float = getCosLookToObject(elf.position) * 125.0 + 125.0
@@ -676,6 +680,45 @@ def footprintsRender()
             7.0, 
             footprint.color + floatToTransparent(transparent)
         )
+
+/*
+ * ===============================================================================================================
+ *
+ * INTERACTABLE
+ *
+ * ===============================================================================================================
+ */
+
+let
+    InteractDist: float = titleSize * 1.5
+
+struct Interactable
+    position: float2
+    interactText: string = "[F] interact"
+
+def getNearestInteract(): Interactable?
+    var minDist: float
+    var curDist: float = InteractDist
+    var nearestInteract: &Interactable = null
+
+    // corovaners
+    for interactObj in corovan.corovaners
+        curDist = distTo(player.position, interactObj.position)
+        if curDist >= minDist
+            continue
+
+        minDist = curDist
+        nearestInteract = &interactObj
+
+    // elf
+    curDist = distTo(player.position, elf.position)
+    if curDist < minDist
+        minDist = curDist
+        nearestInteract = interactObj
+
+    return nearestInteract
+
+def 
 
 /*
  * ===============================================================================================================
