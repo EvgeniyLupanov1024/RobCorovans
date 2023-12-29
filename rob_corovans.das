@@ -407,10 +407,15 @@ struct Interactable
     interactText: string = "[F] interact"
     interactTextTranparent: float = 0.0
 
+    interact = @@defaultInteract
+
 struct InteractText
     pInteract: Interactable?
     transparent: float = 0.0
     offset: float2 = interactTextOffset
+
+def defaultInteract()
+    return
 
 def getNearestInteract(): Interactable?
     var minDist: float = interactDist
@@ -450,13 +455,16 @@ def InteractableUpdate(dt: float)
             max(interactText.transparent -= interactTextTranparentStep, 0.0)
             if interactText.transparent == 0.0
                 erase(interactTextes, idx)
+
+        idx--
         
     if !haveInteractText && pNearestInteract != null
         var newInteractText: InteractText = InteractText()
         newInteractText.pInteract = pNearestInteract
-        push(interactTextes, newInteractText)        
+        push(interactTextes, newInteractText)
 
-    idx--
+    if pNearestInteract != null && get_key_down(VK_F)
+        (*pNearestInteract).interact()
 
 def InteractableRender()
     for interactText in interactTextes
