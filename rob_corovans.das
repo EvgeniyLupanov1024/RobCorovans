@@ -400,87 +400,97 @@ let
     interactTextOffset: float2 = float2(0.0, 30.0)
 
 var 
-    interactTextes: array<InteractText>
+    pInteractables: array<InteractText>
 
 struct Interactable
     position: float2
     interactText: string = "[F] interact"
-    interactTextTranparent: float = 0.0
+    interactTextTransparent: float = 0.0
+    interactTextOffset: float2 = interactTextOffset
 
     interact = @@defaultInteract
 
-struct InteractText
-    pInteract: Interactable?
-    transparent: float = 0.0
-    offset: float2 = interactTextOffset
-
-def defaultInteract()
+def defaultInteract(var interactable: Interactable)
     return
 
-def getNearestInteract(): Interactable?
+def getNearestInteractable(): Interactable?
     var minDist: float = interactDist
     var curDist: float
-    var pNearestInteract: Interactable? = null
+    var pNearestInteractable: Interactable? = null
 
     // corovaners
-    for interactObj in corovan.corovaners
-        curDist = distTo(player.position, interactObj.position)
+    for interactable in corovan.corovaners
+        curDist = distTo(player.position, interactable.position)
         if curDist >= minDist
             continue
 
         minDist = curDist
-        pNearestInteract = unsafe(addr(interactObj))
+        pNearestInteractable = unsafe(addr(interactable))
 
     // elf
     curDist = distTo(player.position, elf.position)
     if curDist < minDist
         minDist = curDist
-        pNearestInteract = unsafe(addr(elf))
+        pNearestInteractable = unsafe(addr(elf))
 
     unsafe
-        return pNearestInteract
+        return pNearestInteractable
 
 def InteractableUpdate(dt: float)
-    var pNearestInteract: Interactable? = getNearestInteract()
-    var haveInteractText: bool = false
+    var pNearestInteractable: Interactable? = getNearestInteractable()
+    var haveInteractable: bool = false
 
-    var idx: int = length(interactTextes) - 1
+    var idx: int = length(pInteractables) - 1
     while idx >= 0
-        var interactText: InteractText = interactTextes[idx]
+        var pInteractable: Interactable? = *pInteractables[idx]
 
-        if interactText.pInteract == pNearestInteract && interactText.transparent == 255.0
-            min(interactText.transparent += interactTextTranparentStep, 255.0)
-            haveInteractText = true
-        else if interactText.pInteract != pNearestInteract
-            max(interactText.transparent -= interactTextTranparentStep, 0.0)
-            if interactText.transparent == 0.0
-                erase(interactTextes, idx)
+        if pInteractable != pNearestInteractable
+            *pInteractable.interactTextTransparent = max(*pInteractable.interactTextTransparent - interactTextTranparentStep, 0.0)
+            if *pInteractable.interactable.interactTextTransparent == 0.0
+                erase(pInteractables, idx)
+        
+        else if *pInteractable.interactTextTransparent == 255.0
+            *pInteractable.interactTextTransparent = min(*pInteractable.interactTextTransparent + interactTextTranparentStep, 255.0)
+            haveInteractable = true
 
         idx--
-        
-    if !haveInteractText && pNearestInteract != null
-        var newInteractText: InteractText = InteractText()
-        newInteractText.pInteract = pNearestInteract
-        push(interactTextes, newInteractText)
 
-    if pNearestInteract != null && get_key_down(VK_F)
-        (*pNearestInteract).interact()
+    if !haveInteractable && pNearestInteractable != null
+        push(pInteractables, pNearestInteractable)
+
+    if pNearestInteractable != null && get_key_down(VK_F)
+        *pNearestInteractable.interact()
 
 def InteractableRender()
-    for interactText in interactTextes
-        var interact: Interactable = *interactText.pInteract
+    for pInteractable in pInteractables
+        var interactable: Interactable = *pInteractable
         
         var transparent: float = interactText.transparent
-        transparent = getCosLookToObject(interact.position) * 125.0 + 125.0
-        transparent *= proximityToMapBorder(interact.position, deepTransparentArea)
+        transparent = getCosLookToObject(interactable.position) * 125.0 + 125.0
+        transparent *= proximityToMapBorder(interactable.position, deepTransparentArea)
         
         fill_rect(
-            interact.position.x - camera.screenPosition.x, 
-            interact.position.y - camera.screenPosition.y, 
+            interactable.position.x - camera.screenPosition.x, 
+            interactable.position.y - camera.screenPosition.y, 
             100.0 + interactText.offset.x,
             50.0 + interactText.offset.y, 
             0xEEDDBB + floatToTransparent(transparent)
         )
+
+/*
+ * ===============================================================================================================
+ *
+ * DIALOGABLE
+ *
+ * ===============================================================================================================
+ */
+
+struct Dialogable
+    position: float2
+    dialog: Dialog = Dialog()
+
+struct Dialog
+
 
 /*
  * ===============================================================================================================
