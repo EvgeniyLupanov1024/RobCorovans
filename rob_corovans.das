@@ -74,6 +74,7 @@ def sceneUpdate(dt: float)
     stormUpdate(dt)
     footprintsUpdate(dt)
 
+    InteractableUpdate(dt)
     cameraUpdate(dt)
 
 def sceneRender()
@@ -396,11 +397,20 @@ def titleFromPos(pos: float2): Title
 let
     interactDist: float = titleSize * 2.5
     interactTextTranparentStep: float = 16.0
+    interactTextOffset: float2 = float2(0.0, 30.0)
+
+var 
+    interactTextes: array<InteractText>
 
 struct Interactable
     position: float2
     interactText: string = "[F] interact"
     interactTextTranparent: float = 0.0
+
+struct InteractText
+    pInteract: Interactable?
+    transparent: float = 0.0
+    offset: float2 = interactTextOffset
 
 def getNearestInteract(): Interactable?
     var minDist: float = interactDist
@@ -426,23 +436,43 @@ def getNearestInteract(): Interactable?
         return pNearestInteract
 
 def InteractableUpdate(dt: float)
-    return
+    var pNearestInteract: Interactable? = getNearestInteract()
+    var haveInteractText: bool = false
+
+    var idx: int = length(interactTextes) - 1
+    while idx >= 0
+        var interactText: InteractText = interactTextes[idx]
+
+        if interactText.pInteract == pNearestInteract && interactText.transparent == 255.0
+            min(interactText.transparent += interactTextTranparentStep, 255.0)
+            haveInteractText = true
+        else if interactText.pInteract != pNearestInteract
+            max(interactText.transparent -= interactTextTranparentStep, 0.0)
+            if interactText.transparent == 0.0
+                erase(interactTextes, idx)
+        
+    if !haveInteractText && pNearestInteract != null
+        var newInteractText: InteractText = InteractText()
+        newInteractText.pInteract = pNearestInteract
+        push(interactTextes, newInteractText)        
+
+    idx--
 
 def InteractableRender()
-    var pNearestInteract: Interactable? = getNearestInteract()
-    if pNearestInteract == null
-        return
-
-    var nearestInteract: Interactable = *pNearestInteract
-    var transparent: float = getCosLookToObject(nearestInteract.position) * 125.0 + 125.0
-    transparent *= proximityToMapBorder(nearestInteract.position, deepTransparentArea)
-    fill_rect(
-        nearestInteract.position.x - camera.screenPosition.x, 
-        nearestInteract.position.y - camera.screenPosition.y, 
-        50.0,
-        100.0, 
-        0xEEEEBB + floatToTransparent(transparent)
-    )
+    for interactText in interactTextes
+        var interact: Interactable = *interactText.pInteract
+        
+        var transparent: float = interactText.transparent
+        transparent = getCosLookToObject(interact.position) * 125.0 + 125.0
+        transparent *= proximityToMapBorder(interact.position, deepTransparentArea)
+        
+        fill_rect(
+            interact.position.x - camera.screenPosition.x, 
+            interact.position.y - camera.screenPosition.y, 
+            100.0 + interactText.offset.x,
+            50.0 + interactText.offset.y, 
+            0xEEDDBB + floatToTransparent(transparent)
+        )
 
 /*
  * ===============================================================================================================
