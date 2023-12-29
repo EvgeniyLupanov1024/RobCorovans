@@ -69,6 +69,7 @@ def sceneInit()
 
 def sceneUpdate(dt: float)
     playerUpdate(dt)
+    elfUpdate(dt)
     corovanUpdate(dt)
 
     stormUpdate(dt)
@@ -465,15 +466,15 @@ def InteractableRender()
     for pInteractable in pInteractables
         var interactable: Interactable = *pInteractable
         
-        var transparent: float = interactText.transparent
+        var transparent: float = interactable.interactTextTransparent
         transparent = getCosLookToObject(interactable.position) * 125.0 + 125.0
         transparent *= proximityToMapBorder(interactable.position, deepTransparentArea)
         
         fill_rect(
             interactable.position.x - camera.screenPosition.x, 
             interactable.position.y - camera.screenPosition.y, 
-            100.0 + interactText.offset.x,
-            50.0 + interactText.offset.y, 
+            100.0 + interactable.interactTextOffset.x,
+            50.0 + interactable.interactTextOffset.y, 
             0xEEDDBB + floatToTransparent(transparent)
         )
 
@@ -485,12 +486,47 @@ def InteractableRender()
  * ===============================================================================================================
  */
 
+let 
+    dialogOffset: float2 = float2(0.0, -30.0)
+    dialogCleanTimerMax: float = 5.0
+
 struct Dialogable
     position: float2
-    dialog: Dialog = Dialog()
 
-struct Dialog
+    printDialog = @@sprintDialog
+    endPrintingDialog = @@endPrintingDialog
 
+    dialogText: string
+    dialogPrintedText: string
+    dialogPrinting: bool = false
+    dialogOffset: float2 = dialogOffset
+    dialogCleanTimer: float
+
+    dialogableUpdate = @@dialogableUpdate
+    dialogableRender = @@dialogableRender
+
+def printDialog(var dialogable: Dialogable; str: string)
+    dialogable.dialogText = str
+    dialogable.dialogPrinting = true
+
+def endPrintingDialog(var dialogable: Dialogable)
+    dialogable.dialogPrintedText = dialogText
+    dialogable.dialogPrinting = false
+
+def dialogableUpdate(var dialogable: Dialogable; dt: float)
+    return
+
+def dialogableRender(var dialogable: Dialogable)
+    var transparent: float = getCosLookToObject(dialogable.position) * 55.0 + 200.0
+    transparent *= proximityToMapBorder(dialogable.position, deepTransparentArea)
+    
+    fill_rect(
+        dialogable.position.x - camera.screenPosition.x, 
+        dialogable.position.y - camera.screenPosition.y, 
+        200.0 + dialogOffset.x,
+        100.0 + dialogOffset.y, 
+        0xEEDDBB + floatToTransparent(transparent)
+    )
 
 /*
  * ===============================================================================================================
@@ -508,7 +544,7 @@ struct Corovan
     isRobbed: bool = false
     corovaners: array<Corovaner>
 
-struct Corovaner: Interactable
+struct Corovaner: Interactable, Dialogable
     override position: float2
     wayPointIndex: int = 0
     alive: bool = true
@@ -586,6 +622,8 @@ def corovanersUpdate(dt: float)
         corovaner.speed += normalize(moveDir) * corovaner.moveSpeed
         corovaner.speed *= 0.9
 
+        corovaner.dialogableUpdate(dt)
+
 def corovanRender()
     for corovaner in corovan.corovaners
         var transparent: float = getCosLookToObject(corovaner.position) * 125.0 + 125.0
@@ -598,6 +636,8 @@ def corovanRender()
             0xCCCCFF + floatToTransparent(transparent)
         )
 
+        corovaner.dialogableRender()
+
 /*
  * ===============================================================================================================
  *
@@ -606,10 +646,13 @@ def corovanRender()
  * ===============================================================================================================
  */
 
-struct Elf: Interactable
+struct Elf: Interactable, Dialogable
     override position: float2 = float2(600.0, -titleSize)
 
     override interactText = "[F] говорить"
+
+def elfUpdate(dt: float)
+    elf.dialogableUpdate(dt)
 
 def elfRender()
     var titleTransparent: float = getCosLookToObject(elf.position) * 125.0 + 125.0
@@ -619,6 +662,8 @@ def elfRender()
         16.0, 
         0xCCFFCC + floatToTransparent(titleTransparent)
     )
+
+    elf.dialogableRender()
 
 /*
  * ===============================================================================================================
