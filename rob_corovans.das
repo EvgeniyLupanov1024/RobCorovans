@@ -72,10 +72,11 @@ def sceneUpdate(dt: float)
     elfUpdate(dt)
     corovanUpdate(dt)
 
+    pCurInteractable = getNearestInteractable()
+
     stormUpdate(dt)
     footprintsUpdate(dt)
 
-    InteractableUpdate(dt)
     cameraUpdate(dt)
 
 def sceneRender()
@@ -119,7 +120,6 @@ def cameraRender()
 
     stormRender()
 
-    InteractableRender()
     guiRender()
 
 /*
@@ -397,17 +397,19 @@ def titleFromPos(pos: float2): Title
 
 let
     interactDist: float = titleSize * 2.5
-    interactTextTranparentStep: float = 16.0
     interactTextOffset: float2 = float2(0.0, 30.0)
 
 var 
-    pInteractables: array<InteractText>
+    pCurInteractable: Interactable? = null
 
 struct Interactable
     position: float2
     interactText: string = "[F] interact"
     interactTextTransparent: float = 0.0
     interactTextOffset: float2 = interactTextOffset
+
+    InteractableUpdate = @@InteractableUpdate
+    InteractableRender = @@InteractableRender
 
     interact = @@defaultInteract
 
@@ -437,46 +439,27 @@ def getNearestInteractable(): Interactable?
     unsafe
         return pNearestInteractable
 
-def InteractableUpdate(dt: float)
-    var pNearestInteractable: Interactable? = getNearestInteractable()
-    var haveInteractable: bool = false
+def InteractableUpdate(var interactable: Interactable; dt: float)
+    if unsafe(addr(interactable)) != pCurInteractable
+        if interactable.interactTextTransparent > 0.0
+            interactable.interactTextTransparent = max(interactable.interactTextTransparent - dt * 4.0, 0.0)
+    
+    elif interactable.interactTextTransparent < 1.0
+        interactable.interactTextTransparent = min(interactable.interactTextTransparent + dt * 7.0, 1.0)
+        if get_key_down(VK_F)
+            interactable->interact()
 
-    var idx: int = length(pInteractables) - 1
-    while idx >= 0
-        var pInteractable: Interactable? = *pInteractables[idx]
+def InteractableRender(var interactable: Interactable; var transparent: float)
+    transparent *= interactable.interactTextTransparent
 
-        if pInteractable != pNearestInteractable
-            *pInteractable.interactTextTransparent = max(*pInteractable.interactTextTransparent - interactTextTranparentStep, 0.0)
-            if *pInteractable.interactable.interactTextTransparent == 0.0
-                erase(pInteractables, idx)
-        
-        else if *pInteractable.interactTextTransparent == 255.0
-            *pInteractable.interactTextTransparent = min(*pInteractable.interactTextTransparent + interactTextTranparentStep, 255.0)
-            haveInteractable = true
-
-        idx--
-
-    if !haveInteractable && pNearestInteractable != null
-        push(pInteractables, pNearestInteractable)
-
-    if pNearestInteractable != null && get_key_down(VK_F)
-        *pNearestInteractable.interact()
-
-def InteractableRender()
-    for pInteractable in pInteractables
-        var interactable: Interactable = *pInteractable
-        
-        var transparent: float = interactable.interactTextTransparent
-        transparent = getCosLookToObject(interactable.position) * 125.0 + 125.0
-        transparent *= proximityToMapBorder(interactable.position, deepTransparentArea)
-        
-        fill_rect(
-            interactable.position.x - camera.screenPosition.x, 
-            interactable.position.y - camera.screenPosition.y, 
-            100.0 + interactable.interactTextOffset.x,
-            50.0 + interactable.interactTextOffset.y, 
-            0xEEDDBB + floatToTransparent(transparent)
-        )
+    set_font_size(20.0)
+    set_font_name("Shadower.ttf")
+    text_out(
+        interactable.position.x - camera.screenPosition.x + interactable.interactTextOffset.x, 
+        interactable.position.y - camera.screenPosition.y + interactable.interactTextOffset.y,
+        interactable.interactText,
+        0xEEDD77 + floatToTransparent(transparent)
+    )
 
 /*
  * ===============================================================================================================
@@ -487,13 +470,13 @@ def InteractableRender()
  */
 
 let 
-    dialogOffset: float2 = float2(0.0, -30.0)
+    dialogOffset: float2 = float2(0.0, -100.0)
     dialogCleanTimerMax: float = 5.0
 
-struct Dialogable
-    position: float2
+struct Dialogable: Interactable
+    override position: float2
 
-    printDialog = @@sprintDialog
+    printDialog = @@printDialog
     endPrintingDialog = @@endPrintingDialog
 
     dialogText: string
@@ -510,10 +493,10 @@ def printDialog(var dialogable: Dialogable; str: string)
     dialogable.dialogPrinting = true
 
 def endPrintingDialog(var dialogable: Dialogable)
-    dialogable.dialogPrintedText = dialogText
+    dialogable.dialogPrintedText = dialogable.dialogText
     dialogable.dialogPrinting = false
 
-def dialogableUpdate(var dialogable: Dialogable; dt: float)
+def dialogableUpdate(var dialogable: Dialogable)
     return
 
 def dialogableRender(var dialogable: Dialogable)
@@ -525,7 +508,7 @@ def dialogableRender(var dialogable: Dialogable)
         dialogable.position.y - camera.screenPosition.y, 
         200.0 + dialogOffset.x,
         100.0 + dialogOffset.y, 
-        0xEEDDBB + floatToTransparent(transparent)
+        0x99DDBB + floatToTransparent(transparent)
     )
 
 /*
@@ -544,7 +527,7 @@ struct Corovan
     isRobbed: bool = false
     corovaners: array<Corovaner>
 
-struct Corovaner: Interactable, Dialogable
+struct Corovaner: Dialogable
     override position: float2
     wayPointIndex: int = 0
     alive: bool = true
@@ -622,7 +605,8 @@ def corovanersUpdate(dt: float)
         corovaner.speed += normalize(moveDir) * corovaner.moveSpeed
         corovaner.speed *= 0.9
 
-        corovaner.dialogableUpdate(dt)
+        corovaner->dialogableUpdate()
+        corovaner->InteractableUpdate(dt)
 
 def corovanRender()
     for corovaner in corovan.corovaners
@@ -636,7 +620,8 @@ def corovanRender()
             0xCCCCFF + floatToTransparent(transparent)
         )
 
-        corovaner.dialogableRender()
+        corovaner->dialogableRender()
+        corovaner->InteractableRender(transparent)
 
 /*
  * ===============================================================================================================
@@ -646,24 +631,26 @@ def corovanRender()
  * ===============================================================================================================
  */
 
-struct Elf: Interactable, Dialogable
+struct Elf: Dialogable
     override position: float2 = float2(600.0, -titleSize)
 
     override interactText = "[F] говорить"
 
 def elfUpdate(dt: float)
-    elf.dialogableUpdate(dt)
+    elf->dialogableUpdate()
+    elf->InteractableUpdate(dt)
 
 def elfRender()
-    var titleTransparent: float = getCosLookToObject(elf.position) * 125.0 + 125.0
+    var transparent: float = getCosLookToObject(elf.position) * 125.0 + 125.0
     fill_circle(
         elf.position.x - camera.screenPosition.x, 
         elf.position.y - camera.screenPosition.y, 
         16.0, 
-        0xCCFFCC + floatToTransparent(titleTransparent)
+        0xCCFFCC + floatToTransparent(transparent)
     )
 
-    elf.dialogableRender()
+    elf->dialogableRender()
+    elf->InteractableRender(transparent)
 
 /*
  * ===============================================================================================================
