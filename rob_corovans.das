@@ -443,11 +443,13 @@ def InteractableUpdate(var interactable: Interactable; dt: float)
     if unsafe(addr(interactable)) != pCurInteractable
         if interactable.interactTextTransparent > 0.0
             interactable.interactTextTransparent = max(interactable.interactTextTransparent - dt * 4.0, 0.0)
+        return
     
-    elif interactable.interactTextTransparent < 1.0
+    if interactable.interactTextTransparent < 1.0
         interactable.interactTextTransparent = min(interactable.interactTextTransparent + dt * 7.0, 1.0)
-        if get_key_down(VK_F)
-            interactable->interact()
+    
+    if get_key_down(VK_F)
+        interactable->interact()
 
 def InteractableRender(var interactable: Interactable; var transparent: float)
     transparent *= interactable.interactTextTransparent
@@ -470,8 +472,8 @@ def InteractableRender(var interactable: Interactable; var transparent: float)
  */
 
 let 
-    dialogOffset: float2 = float2(0.0, -100.0)
-    dialogCleanTimerMax: float = 5.0
+    dialogOffset: float2 = float2(0.0, -50.0)
+    dialogNextLetterTimerMax = 0.05
 
 struct Dialogable: Interactable
     override position: float2
@@ -483,7 +485,9 @@ struct Dialogable: Interactable
     dialogPrintedText: string
     dialogPrinting: bool = false
     dialogOffset: float2 = dialogOffset
-    dialogCleanTimer: float
+    
+    dialogNextLetterInd: int = 0
+    dialogNextLetterTimer: float = 0.0
 
     dialogableUpdate = @@dialogableUpdate
     dialogableRender = @@dialogableRender
@@ -496,19 +500,24 @@ def endPrintingDialog(var dialogable: Dialogable)
     dialogable.dialogPrintedText = dialogable.dialogText
     dialogable.dialogPrinting = false
 
-def dialogableUpdate(var dialogable: Dialogable)
-    return
+def dialogableUpdate(var dialogable: Dialogable; dt: float)
+    dialogable.dialogNextLetterTimer += dt
+    if dialogable.dialogNextLetterTimer < dialogNextLetterTimerMax
+        return
+
+    dialogable.dialogNextLetterTimer = 0.0
 
 def dialogableRender(var dialogable: Dialogable)
     var transparent: float = getCosLookToObject(dialogable.position) * 55.0 + 200.0
     transparent *= proximityToMapBorder(dialogable.position, deepTransparentArea)
     
-    fill_rect(
-        dialogable.position.x - camera.screenPosition.x, 
-        dialogable.position.y - camera.screenPosition.y, 
-        200.0 + dialogOffset.x,
-        100.0 + dialogOffset.y, 
-        0x99DDBB + floatToTransparent(transparent)
+    set_font_size(20.0)
+    set_font_name("Shadower.ttf")
+    text_out(
+        dialogable.position.x - camera.screenPosition.x + dialogable.dialogOffset.x, 
+        dialogable.position.y - camera.screenPosition.y + dialogable.dialogOffset.y,
+        dialogable.dialogPrintedText,
+        0xEEDD77 + floatToTransparent(transparent)
     )
 
 /*
@@ -605,7 +614,7 @@ def corovanersUpdate(dt: float)
         corovaner.speed += normalize(moveDir) * corovaner.moveSpeed
         corovaner.speed *= 0.9
 
-        corovaner->dialogableUpdate()
+        corovaner->dialogableUpdate(dt)
         corovaner->InteractableUpdate(dt)
 
 def corovanRender()
@@ -636,8 +645,10 @@ struct Elf: Dialogable
 
     override interactText = "[F] говорить"
 
+    override interact = @@elfInteract
+
 def elfUpdate(dt: float)
-    elf->dialogableUpdate()
+    elf->dialogableUpdate(dt)
     elf->InteractableUpdate(dt)
 
 def elfRender()
@@ -651,6 +662,13 @@ def elfRender()
 
     elf->dialogableRender()
     elf->InteractableRender(transparent)
+
+def elfInteract(var interactable: Interactable)
+    // var dialogable: Dialogable = unsafe(reinterpret<Dialogable> interactable)
+    if elf.dialogPrinting
+        elf->endPrintingDialog()
+    else
+        elf->printDialog("Hello!")
 
 /*
  * ===============================================================================================================
@@ -792,8 +810,11 @@ def addFootprint(position: float2)
     footprints.endInd++
     if footprints.endInd == maxCountFootprint
         footprints.endInd = 0
+
     if footprints.endInd == footprints.startInd
         footprints.startInd++
+        if footprints.startInd == maxCountFootprint
+            footprints.startInd = 0
  
 def getFootprintIndices(): iterator<int>
     var it: iterator<int>
@@ -808,7 +829,7 @@ def footprintsUpdate(dt: float)
         if footprints.ring[ind].lifetime <= 0.0
             if ind == footprints.startInd
                 footprints.startInd++
-                if footprints.startInd > maxCountFootprint
+                if footprints.startInd == maxCountFootprint
                     footprints.startInd = 0
             continue
  
