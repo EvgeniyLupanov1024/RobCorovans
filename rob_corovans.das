@@ -2,9 +2,11 @@ require daslib/media
 require random
 require math
 require strings
+require daslib/strings_boost
 
 options debugger            // uncomment for debug in VS Code
 require daslib/debug        // uncomment for debug in VS Code
+
 
 /*
  * ===============================================================================================================
@@ -64,8 +66,12 @@ var
     footprints: Footprints <- Footprints()
 
 def sceneInit()
-    initEntities()
     generateMap()
+
+    playerInit()
+    elfInit()
+
+    stormInit()
 
 def sceneUpdate(dt: float)
     playerUpdate(dt)
@@ -81,11 +87,6 @@ def sceneUpdate(dt: float)
 
 def sceneRender()
     cameraRender()
-
-def initEntities()
-    player.distToFootprint = random_float(seed) * player.stepLen
-
-    storm.windDir = randVec()
 
 /*
  * ===============================================================================================================
@@ -135,7 +136,12 @@ let
     debugTextColor: uint = 0xEEDDAABB
 
     exitTextFontSize: int = 36
+    exitTextAvrWidth: float = float(exitTextFontSize) * 0.54
     exitTextFontColor: uint = 0xFFEEDDCC
+
+    exitTextBorder = "Затеряться в песках"
+    exitTextLost = "Вы затерялись в песках"
+    exitTextLostNote = "[нажмите F5, чтобы начать путишествие]"
     
 def guiRender()
     debugRender()
@@ -148,10 +154,7 @@ def debugRender()
     text_out(debugTextOffset, y, "Игрок: ({player.position})", debugTextColor)
 
     y += debugTextOffset
-    text_out(debugTextOffset, y, "Взгляд: ({player.lookPoint})", debugTextColor)  
-
-    y += debugTextOffset
-    text_out(debugTextOffset, y, "Индексы кольца: {footprints.startInd} - {footprints.endInd}", debugTextColor) 
+    text_out(debugTextOffset, y, "Взгляд: ({player.lookPoint})", debugTextColor)
 
     y += debugTextOffset
     text_out(debugTextOffset, y, "Ветер: {storm.windDir} | {storm.windForce}", debugTextColor)
@@ -159,18 +162,33 @@ def debugRender()
 def exitFromMapRender(transparent: float)
     set_font_size(exitTextFontSize)
     set_font_name("Shadower.ttf")
-    text_out(getCenteringTextOffset(20, exitTextFontSize), 150, "Затеряться в песках", exitTextFontColor + floatToTransparent(transparent))
+    text_out(
+        getCenteringTextOffset(exitTextBorder, exitTextAvrWidth),
+        150, 
+        exitTextBorder, 
+        exitTextFontColor + floatToTransparent(transparent)
+    )
 
 def lostInDesertRender()
     set_font_size(exitTextFontSize)
     set_font_name("Shadower.ttf")
-    text_out(getCenteringTextOffset(23, exitTextFontSize), 150, "Вы затерялись в песках", exitTextFontColor)
+    text_out(
+        getCenteringTextOffset(exitTextLost, exitTextAvrWidth),
+        150, 
+        exitTextLost, 
+        exitTextFontColor
+    )
 
     set_font_size(exitTextFontSize / 2)
-    text_out(getCenteringTextOffset(38, exitTextFontSize / 2), 150 + exitTextFontSize * 2, "[нажмите F5, чтобы начать путишествие]", exitTextFontColor)
+    text_out(
+        getCenteringTextOffset(exitTextLostNote, exitTextAvrWidth / 2.0),
+        150 + int(float(exitTextFontSize) * 1.7), 
+        exitTextLostNote, 
+        exitTextFontColor
+    )
 
-def getCenteringTextOffset(len: int; fontSize: int): int
-    return (get_screen_width() - fontSize * (len / 2)) / 2
+def getCenteringTextOffset(str: string; avr: float): int
+    return (get_screen_width() - int(getStrPixelWidth(str, avr))) / 2
 
 /*
  * ===============================================================================================================
@@ -192,6 +210,9 @@ struct Player
     stepLen: float = 60.0
     distToFootprint: float
     leftFootprint: bool = false
+
+def playerInit()
+    player.distToFootprint = random_float(seed) * player.stepLen
 
 def playerUpdate(dt: float)
     if !player.alive
@@ -398,6 +419,8 @@ def titleFromPos(pos: float2): Title
 let
     interactDist: float = titleSize * 2.5
     interactTextOffset: float2 = float2(0.0, 30.0)
+    interactTextFontSize: int = 16
+    interactTextAvrWidth: float = float(interactTextFontSize) * 0.66
 
 var 
     pCurInteractable: Interactable? = null
@@ -454,8 +477,8 @@ def InteractableUpdate(var interactable: Interactable; dt: float)
 def InteractableRender(var interactable: Interactable; var transparent: float)
     transparent *= interactable.interactTextTransparent
 
-    set_font_size(20.0)
-    set_font_name("Shadower.ttf")
+    set_font_size(interactTextFontSize)
+    set_font_name("noita.ttf")
     text_out(
         interactable.position.x - camera.screenPosition.x + interactable.interactTextOffset.x, 
         interactable.position.y - camera.screenPosition.y + interactable.interactTextOffset.y,
@@ -511,8 +534,8 @@ def dialogableRender(var dialogable: Dialogable)
     var transparent: float = getCosLookToObject(dialogable.position) * 55.0 + 200.0
     transparent *= proximityToMapBorder(dialogable.position, deepTransparentArea)
     
-    set_font_size(20.0)
-    set_font_name("Shadower.ttf")
+    set_font_size(22.0)
+    set_font_name("noita.ttf")
     text_out(
         dialogable.position.x - camera.screenPosition.x + dialogable.dialogOffset.x, 
         dialogable.position.y - camera.screenPosition.y + dialogable.dialogOffset.y,
@@ -542,7 +565,7 @@ struct Corovaner: Dialogable
     alive: bool = true
     isRobbed: bool = false
 
-    moveSpeed: float = 5.0
+    moveSpeed: float = 3.0
     speed: float2
 
     stepLen: float = 60.0
@@ -565,6 +588,8 @@ def startCorovan()
         corovaner.wayPointIndex = 0
         corovaner.stepLen += (random_float(seed) - 0.5) * 5.0
         corovaner.distToFootprint = random_float(seed) * corovaner.stepLen
+
+        corovaner.interactTextOffset.x -= getStrPixelWidth(corovaner.interactText, interactTextAvrWidth) / 2.0
 
         push(corovan.corovaners, corovaner)
         startPosition.y += titleSize * 2.5
@@ -647,6 +672,9 @@ struct Elf: Dialogable
 
     override interact = @@elfInteract
 
+def elfInit()
+    elf.interactTextOffset.x -= getStrPixelWidth(elf.interactText, interactTextAvrWidth) / 2.0
+
 def elfUpdate(dt: float)
     elf->dialogableUpdate(dt)
     elf->InteractableUpdate(dt)
@@ -705,6 +733,9 @@ struct Swirl
 
     transparent: float = 0.0
     alive: bool = false
+
+def stormInit()
+    storm.windDir = randVec()
 
 def stormUpdate(dt: float)
     addSwirl()
@@ -887,6 +918,27 @@ def randVec(): float2
         (random_float(seed) - 0.5) * 2.0
     )
     
+def getSingCount(str: string): int
+    var singCoutn: int
+    var utf: bool = false
+
+    for ch in str
+        if utf
+            utf = false
+            singCoutn++
+            continue
+
+        if ch > 128
+            utf = true
+            continue
+
+        singCoutn++
+    
+    return singCoutn
+
+def getStrPixelWidth(str: string; average: float): float
+    return float(getSingCount(str)) * average
+
 /*
  * ===============================================================================================================
  *
