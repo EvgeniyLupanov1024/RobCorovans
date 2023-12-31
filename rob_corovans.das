@@ -496,7 +496,6 @@ def InteractableRender(var interactable: Interactable; var transparent: float)
 
 let 
     dialogOffset: float2 = float2(0.0, -50.0)
-    dialogNextLetterTimerMax = 0.05
 
 struct Dialogable: Interactable
     override position: float2
@@ -505,12 +504,15 @@ struct Dialogable: Interactable
     endPrintingDialog = @@endPrintingDialog
 
     dialogText: string
-    dialogPrintedText: string
     dialogPrinting: bool = false
     dialogOffset: float2 = dialogOffset
     
-    dialogNextLetterInd: int = 0
-    dialogNextLetterTimer: float = 0.0
+    dialogLetterInd: int = 0
+    dialogLetterTimer: float = 0.0
+    dialogLetterTimerMax: float = 0.043
+
+    dialogCleanTimer: float = 0.0
+    dialogCleanTimerMax: float = 20.0
 
     dialogableUpdate = @@dialogableUpdate
     dialogableRender = @@dialogableRender
@@ -518,17 +520,37 @@ struct Dialogable: Interactable
 def printDialog(var dialogable: Dialogable; str: string)
     dialogable.dialogText = str
     dialogable.dialogPrinting = true
+    dialogable.dialogLetterInd = 0
 
 def endPrintingDialog(var dialogable: Dialogable)
-    dialogable.dialogPrintedText = dialogable.dialogText
     dialogable.dialogPrinting = false
+    dialogable.dialogCleanTimer = dialogable.dialogCleanTimerMax
+    dialogable.dialogLetterInd = length(dialogable.dialogText)
 
 def dialogableUpdate(var dialogable: Dialogable; dt: float)
-    dialogable.dialogNextLetterTimer += dt
-    if dialogable.dialogNextLetterTimer < dialogNextLetterTimerMax
+    if dialogable.dialogCleanTimer > 0.0
+        dialogable.dialogCleanTimer -= dt
+        if dialogable.dialogCleanTimer <= 0.0
+            dialogable.dialogLetterInd = 0
+
+    if !dialogable.dialogPrinting
         return
 
-    dialogable.dialogNextLetterTimer = 0.0
+    dialogable.dialogLetterTimer -= dt
+    if dialogable.dialogLetterTimer > 0.0
+        return
+
+    var ch: int = unsafe(character_uat(dialogable.dialogText, dialogable.dialogLetterInd))
+    if ch > 128
+        dialogable.dialogLetterInd++
+    elif ch == '.' || ch == '!' || ch == '?'
+        dialogable.dialogLetterTimer += dialogable.dialogLetterTimerMax * 5.0
+
+    dialogable.dialogLetterTimer += dialogable.dialogLetterTimerMax
+    dialogable.dialogLetterInd++
+    if dialogable.dialogLetterInd == length(dialogable.dialogText)
+        dialogable.dialogPrinting = false
+        dialogable.dialogCleanTimer = dialogable.dialogCleanTimerMax
 
 def dialogableRender(var dialogable: Dialogable)
     var transparent: float = getCosLookToObject(dialogable.position) * 55.0 + 200.0
@@ -539,7 +561,7 @@ def dialogableRender(var dialogable: Dialogable)
     text_out(
         dialogable.position.x - camera.screenPosition.x + dialogable.dialogOffset.x, 
         dialogable.position.y - camera.screenPosition.y + dialogable.dialogOffset.y,
-        dialogable.dialogPrintedText,
+        slice(dialogable.dialogText, 0, dialogable.dialogLetterInd),
         0xEEDD77 + floatToTransparent(transparent)
     )
 
@@ -583,7 +605,7 @@ def startCorovan()
 
     var startPosition: float2 = map.road[0]
     for i in range(5)
-        var corovaner: Corovaner = Corovaner()
+        var corovaner: Corovaner <- Corovaner()
         corovaner.position = startPosition
         corovaner.wayPointIndex = 0
         corovaner.stepLen += (random_float(seed) - 0.5) * 5.0
@@ -591,7 +613,7 @@ def startCorovan()
 
         corovaner.interactTextOffset.x -= getStrPixelWidth(corovaner.interactText, interactTextAvrWidth) / 2.0
 
-        push(corovan.corovaners, corovaner)
+        emplace(corovan.corovaners, corovaner)
         startPosition.y += titleSize * 2.5
 
 def corovanUpdate(dt: float)
@@ -669,8 +691,9 @@ struct Elf: Dialogable
     override position: float2 = float2(600.0, -titleSize)
 
     override interactText = "[F] говорить"
-
     override interact = @@elfInteract
+    
+    override dialogCleanTimerMax = 100.0
 
 def elfInit()
     elf.interactTextOffset.x -= getStrPixelWidth(elf.interactText, interactTextAvrWidth) / 2.0
@@ -696,7 +719,7 @@ def elfInteract(var interactable: Interactable)
     if elf.dialogPrinting
         elf->endPrintingDialog()
     else
-        elf->printDialog("Hello!")
+        elf->printDialog("Hello! Привет? Hello... Привет. Hello!")
 
 /*
  * ===============================================================================================================
