@@ -497,8 +497,8 @@ def InteractableRender(var interactable: Interactable; var transparent: float)
 let 
     dialogOffset: float2 = float2(0.0, -55.0)
     dialogFontSize: float = 20.0
-    dialogFontAvrWidth: float = dialogFontSize * 0.57
-    dialogLetterInLineMax: int = 30
+    dialogFontAvrWidth: float = dialogFontSize * 0.6
+    dialogLetterInLineMax: int = 45
     dialogLineHeight: float = dialogFontSize * 1.5
 
 struct Dialogable: Interactable
@@ -514,7 +514,7 @@ struct Dialogable: Interactable
     dialogLineInd: int = 0    
     dialogLetterInd: int = 0
     dialogLetterTimer: float = 0.0
-    dialogLetterTimerMax: float = 0.043
+    dialogLetterTimerMax: float = 0.03
 
     dialogCleanTimer: float = 0.0
     dialogCleanTimerMax: float = 20.0
@@ -555,7 +555,10 @@ def printDialog(var dialogable: Dialogable; str: string)
 
     push(dialogable.dialogText, slice(str, startInd, length(str)))
     dialogable.dialogOffset.y = dialogOffset.y - dialogLineHeight * float(length(dialogable.dialogText) - 1)
-    dialogable.dialogOffset.x = dialogOffset.x - getStrPixelWidth(dialogable.dialogText[0], dialogFontAvrWidth) / 2.0
+    if length(dialogable.dialogText) == 1
+        dialogable.dialogOffset.x = dialogOffset.x - getStrPixelWidth(dialogable.dialogText[0], dialogFontAvrWidth) / 2.0
+    else 
+        dialogable.dialogOffset.x = dialogOffset.x - (dialogFontAvrWidth * float(dialogLetterInLineMax / 2))
 
 def endPrintingDialog(var dialogable: Dialogable)
     dialogable.dialogPrinting = false
@@ -631,6 +634,8 @@ struct Corovan
     isRobbed: bool = false
     corovaners: array<Corovaner>
 
+    corovanStoryInd: int = 0
+
 struct Corovaner: Dialogable
     override position: float2
     wayPointIndex: int = 0
@@ -645,6 +650,10 @@ struct Corovaner: Dialogable
     leftFootprint: bool = false
 
     override interactText = "[F] грабить"
+    override interact = @@corovanerInteract
+
+    override dialogCleanTimerMax = 13.0
+    corovanerPhrase: string
 
 def startCorovan()
     if corovan.isStart
@@ -653,8 +662,9 @@ def startCorovan()
     corovan.isStart = true
     corovan.isRobbed = false
 
+    debug(corovan.corovanStoryInd)
     var startPosition: float2 = map.road[0]
-    for i in range(5)
+    for phrase in corovanDialogos[corovan.corovanStoryInd]
         var corovaner: Corovaner <- Corovaner()
         corovaner.position = startPosition
         corovaner.wayPointIndex = 0
@@ -662,9 +672,19 @@ def startCorovan()
         corovaner.distToFootprint = random_float(seed) * corovaner.stepLen
 
         corovaner.interactTextOffset.x -= getStrPixelWidth(corovaner.interactText, interactTextAvrWidth) / 2.0
+        corovaner.corovanerPhrase = phrase
 
         emplace(corovan.corovaners, corovaner)
         startPosition.y += titleSize * 2.5
+
+def corovanerInteract(var interactable: Interactable)
+    var pCorovaner: Corovaner? = unsafe(addr(unsafe(upcast<Corovaner> interactable)))
+
+    if (*pCorovaner).dialogPrinting
+        pCorovaner->endPrintingDialog()
+    else
+        pCorovaner->printDialog((*pCorovaner).corovanerPhrase)
+        (*pCorovaner).isRobbed = true
 
 def corovanUpdate(dt: float)
     corovanersUpdate(dt)
@@ -681,6 +701,9 @@ def corovanUpdate(dt: float)
     corovan.isRobbed = isRobbedEveryone
     if corovan.isRobbed
         corovan.isStart = false
+        corovan.corovanStoryInd++
+        if corovan.corovanStoryInd == length(corovanDialogos)
+            corovan.corovanStoryInd = 0
 
 def corovanersUpdate(dt: float)
     for corovaner in corovan.corovaners
@@ -765,7 +788,6 @@ def elfRender()
     elf->InteractableRender(transparent)
 
 def elfInteract(var interactable: Interactable)
-    // var dialogable: Dialogable = unsafe(reinterpret<Dialogable> interactable)
     if elf.dialogPrinting
         elf->endPrintingDialog()
     else
@@ -1020,81 +1042,45 @@ def getStrPixelWidth(str: string; average: float): float
  * ===============================================================================================================
  */
 
-/*
-Под палящим Солнцем
-Нет ничего лучше
-Припекает.. Ты не находишь?
+var
+    elfFirst = [[string[]
+        "Rrrrr1";
+        "Rrrrr2";
+        "Rrrrr3";
+        "Rrrrr4";
+        "Rrrrr5"
+    ]]
 
-===(акт 1)
-Ты тоже пришёл сюда грабить корованы?
+    elfSecond = [[string[]
+        "Ttttt1";
+        "Ttttt2";
+        "Ttttt3";
+        "Ttttt4";
+        "Ttttt5"
+    ]]
 
-Знаешь, а я ведь тоже когда-то был корованщиком. Ходил туда-обратно.
+    elfThird = [[string[]
+        "Yyyyy1";
+        "Yyyyy2";
+        "Yyyyy3";
+        "Yyyyy4";
+        "Yyyyy5"
+    ]]
 
-И мысли мои были заняты не 
-Да, вот так просто. Корова.
-Когда-то, когда эта пустыня зеленела …
-Это очень удобно: корова может быть как вьючным животным, так и источником пищи.
-Такой подход позволял древним корованерам пересекать огромные расстояния.
-Не смейся! Этимология — это тебе не хухры-мухры. Она может пролить свет на самые тёмные, самые древние времена человеческой цивилизации. 
+let corovanDialogos <- [{array<string>
+    [{string
+        "Что? Нет. Меня грабить нельзя. Я против и отказываюсь отдавать вам все свои ценности.";
+        "Подходите! У меня Вы найдёте самые удивительные товары! Что Вам приглянулось? В смысле ничего? В смысле хотите ограбить?";
+        "Конечно меня можно ограбить. У Вас ведь есть два экземпляра 142ой справки? Ну формы А142.. той, что для отчётности о проделанном грабеже.";
+        "Вы точно хотите ограбить корован? Я слышал это вредно для здоровья. И вызывает привыкание.";
+        "Отличная шутка) Я почти поверил, что Вы настоящий грабитель. Такие круглые глаза, такой озлобленный взгляд. Потрясающе."
+    }];
 
-Если хочешь можешь пока вздремнуть или позагорать. Я обязательно тебе скажу, когда увижу корован.
-Можешь взять мой плащ, а то потом ещё неделю будешь песок из себя вытряхивать.
-Что-то не так? 
-Мне показалось, или ты стесняешься снимать при мне броню?
-Ты же не боишься, что я тебя ограблю? только потому, что я, как и ты, граблю корованы.
-
-===(акт 3)
-Что это у тебя тут? на воротнике.
-ХА! купился! у тебя и воротника-та нет.
-Когда ты направился ко мне во второй раз, ты напомнил мне ребёнка спешащего 
-*задумался*
-Вот как интересно получается: когда я только встретил тебя, я собирался тебя ограбить. 
-Я был готов вытряхнуть тебя из твоих же сапог. Поднять за ноги и трясти как свежепойманную рыбу. 
-А сейчас даже не думаю об этом.
-Всего два рейда, а я уже думаю о тебе как о напарнике… Мда.
-Напарник
-на-па-рник
-Никогда бы не подумал, что вновь произнесу это слово. После всего того, что.. … Ну да не будем о этом.
-
-*напряжённо молчит*
-Знаешь, мне нужно кое в чём тебе признаться. 
-На самом деле я не эльф. Я КАДЖИТ. И зовут меня М’Айк. 
-Серьёзно! Мы же в пустыне! Какие тут могут быть эльфы?!
-Просто меня попросили побыть эльфом. Для тебя.
-Нет, нет, я не жалуюсь. Кто-то же должен быть эльфом. Так уж всё устроено.
-Я при деле. И довольно приятном. Можно было бы даже сказать “не пыльным”, если бы не… ну, ты знаешь.. песок. Он здесь повсюду. Даже в воздухе.
-Мда.
-Ладно. Классно поболтали. Я наверное пойду. Но если ты захочешь, я останусь. Только скажи.
-
-Ты свободен, как птица. Мохнатая, четырёхлапая, метр семьдесят пять в холке птица.
-Я бы хотел ещё подождать корована. С тобой. 
-
-Мур-мур-мяу
-
-===== ===== ===== ===== =====(на горизонте)
-Я.. я вижу их. Вон там, за тем барханом. Это КОРОВАНЩИКИ!
-Это он! Я снова его вижу! КОРОВАН на горизонте!
-Потом договорим! Грабь КОРОВАНЫ!
-
-===== ===== ===== ===== =====(корованщики)
-Что? Нет. Меня грабить нельзя. Я против и отказываюсь отдавать вам все свои ценности.
-Подходите! У меня Вы найдёте самые удивительные товары! Что Вам приглянулось? В смысле ничего? В смысле хотите ограбить?
-Конечно меня можно ограбить. У Вас ведь есть два экземпляра 142ой справки? Ну формы А142.. той, что для отчётности о проделанном грабеже.
-Вы точно хотите ограбить корован? Я слышал это вредно для здоровья.
-Отличная шутка) Я почти поверил, что Вы настоящий грабитель. Такие круглые глаза, такой озлобленный взгляд исподлобья. Потрясающе.
-
-===
-У нас самые низкие цены в Анк-Морпорке, за счёт того, что мы экономим на охране корована.
-Я бы с радостью дал себя ограбить, но сегодня последний четверг месяца - не приёмный день для грабителей - увы.
-
-===== ===== ===== ===== =====(описание)
-Диалоговая игра, сделанная во время хакатона по daScript по известному всем тз (https://wikireality.ru/wiki/%D0%93%D1%80%D0%B0%D0%B1%D0%B8%D1%82%D1%8C_%D0%BA%D0%BE%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D1%8B)
-
-User Story
-
-Фичи
-можно грабить корованы
-ветер влияет на скорость передвижения
-
-Установка
-*/
+    [{string
+        "У нас самые низкие цены во внутреннем городе. Мы экономим на охране корована.";
+        "Не утруждайте себя - мой скромный скарб трудно сбыть и он не принесёт большой прибыли";
+        "Я бы с радостью дал себя ограбить, но сегодня последний вторник месяца - неприёмный день для грабителей. Увы.";
+        "Я Герцог Дрешибский, Князь Выребский, и я буду оскорблён, если меня ограбит некто, не имеющий в своей титулатуре хотя бы звания барона.";
+        "У меня для Вас подарок. Берите, не стесняйтесь. Я всегда рад встрече с путником. В пустыне это редкость. Встреча с другим разумным существом. Доброго Вам пути."
+    }]
+}]
