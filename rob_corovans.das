@@ -137,9 +137,14 @@ let
     exitTextAvrWidth: float = float(exitTextFontSize) * 0.54
     exitTextFontColor: uint = 0xFFEEDDCC
 
-    exitTextBorder = "Затеряться в песках"
-    exitTextLost = "Вы затерялись в песках"
-    exitTextLostNote = "[нажмите F5, чтобы начать путишествие]"
+    exitTextBorder: string = "Затеряться в песках"
+    exitTextLost: string = "Вы затерялись в песках"
+    exitTextLostNote: string = "[нажмите F5, чтобы начать путишествие]"
+
+    playerChoiceFontSize: int = 24
+
+    playerChoiceOne: string = "[1] Ты свободен, как птица. Мохнатая, четырёхлапая, метр семьдесят пять в холке птица."
+    playerChoiceTwo: string = "[2] Я бы хотел ещё подождать корована. С тобой."
     
 def guiRender()
     debugRender()
@@ -185,6 +190,23 @@ def lostInDesertRender()
         exitTextFontColor
     )
 
+def playerChoiceRender()
+    set_font_size(playerChoiceFontSize)
+    set_font_name("Shadower.ttf")
+    text_out(
+        50,
+        get_screen_height() - 70 - exitTextFontSize, 
+        playerChoiceOne, 
+        exitTextFontColor
+    )
+
+    text_out(
+        50,
+        get_screen_height() - 70, 
+        playerChoiceTwo, 
+        exitTextFontColor
+    )
+
 def getCenteringTextOffset(str: string; avr: float): int
     return (get_screen_width() - int(getStrPixelWidth(str, avr))) / 2
 
@@ -210,6 +232,8 @@ struct Player
     distToFootprint: float
     leftFootprint: bool = false
 
+    choice: bool = false
+
 def playerInit()
     player.distToFootprint = random_float(seed) * player.stepLen
 
@@ -220,6 +244,7 @@ def playerUpdate(dt: float)
     playerMove(dt)
     playerSpeedUpdate()
     playerLookUpdate()
+    playerChoice()
 
 def playerMove(dt: float)
     player.position += player.speed * dt
@@ -266,6 +291,25 @@ def playerLookUpdate()
     player.lookPoint = camera.screenPosition + get_mouse_position() - player.position
     player.lookLen = length(player.lookPoint)
 
+def playerChoice()
+    if !player.choice
+        return
+
+    if get_key(VK_1)
+        player.choice = false
+
+        elf.elfChoice = 1
+        elf.dialogCleanTimerMax = 5.0
+        elf.vanishing = true
+        clear(elf.dialogText)
+
+    elif get_key(VK_2)
+        player.choice = false
+
+        elf.elfChoice = 2
+        elf.dialogCleanTimerMax = 5.0
+        clear(elf.dialogText)
+
 def getCosLookToObject(objPos: float2): float
     if player.lookLen == 0.0
         return 0.0
@@ -282,6 +326,9 @@ def playerRender()
     if player.maxPositionCoord > deathBorderArea
         lostInDesertRender()
         return
+
+    if player.choice
+        playerChoiceRender()
 
     var playerProximity: float = proximityToMapBorder(player.position, deepTransparentArea)
     var playerTransparent: float = 255.0 * playerProximity
@@ -758,7 +805,7 @@ def corovanRender()
 /*
  * ===============================================================================================================
  *
- * ELF (NOT ELF!)
+ * ELF (NOT ELF)
  *
  * ===============================================================================================================
  */
@@ -776,16 +823,29 @@ struct Elf: Dialogable
     elfStoryInd: int = 0
     elfPhraseInd: int = 0
     elfChoice: int = 0
+    vanishing: bool = false
+    elfTransparent: float = 1.0
+    alive: bool = true
 
 def elfInit()
     elf.interactTextOffset.x -= getStrPixelWidth(elf.interactText, interactTextAvrWidth) / 2.0
 
 def elfUpdate(dt: float)
+    if !elf.alive
+        return
+
+    if elf.vanishing
+        elf.elfTransparent -= dt * 0.15
+        if elf.elfTransparent <= 0.0
+            elf.alive = false
+            clear(elf.dialogText)
+
     elf->dialogableUpdate(dt)
     elf->InteractableUpdate(dt)
 
 def elfRender()
     var transparent: float = getCosLookToObject(elf.position) * 125.0 + 125.0
+    transparent *= elf.elfTransparent
     fill_circle(
         elf.position.x - camera.screenPosition.x, 
         elf.position.y - camera.screenPosition.y, 
@@ -807,6 +867,8 @@ def elfInteract(var interactable: Interactable)
             phrase = "Потом договорим! Грабь КОРОВАНЫ!"
         elif elf.elfStoryInd == 1
             phrase = "КОРОВАНЫ! КОРОВАНЫ! Грабь КОРОВАНЫ!"
+        elif elf.elfStoryInd == 2 && elf.elfChoice == 0
+            phrase = elfDialogos[elf.elfStoryInd][length(elfDialogos[elf.elfStoryInd]) - 1]
         elif elf.elfStoryInd == 2 && elf.elfChoice == 1
             phrase = "Вжух......"
         elif elf.elfStoryInd == 2 && elf.elfChoice == 2
@@ -818,11 +880,14 @@ def elfInteract(var interactable: Interactable)
         elf.elfPhraseInd++
     
     elf->printDialog(phrase)
-    if elf.elfPhraseInd == length(elfDialogos[elf.elfStoryInd]) && (elf.elfStoryInd == 0 || elf.elfStoryInd == 1)
-        startCorovan()
-        elf.dialogCleanTimer = 5.0
-        elf.dialogCleanTimerMax = 5.0
-
+    if elf.elfPhraseInd == length(elfDialogos[elf.elfStoryInd])
+        if elf.elfStoryInd == 0 || elf.elfStoryInd == 1
+            startCorovan()
+            elf.dialogCleanTimer = 5.0
+            elf.dialogCleanTimerMax = 5.0
+        
+        elif elf.elfStoryInd == 2 && elf.elfChoice == 0
+            player.choice = true
 
 /*
  * ===============================================================================================================
