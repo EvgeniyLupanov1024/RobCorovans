@@ -39,9 +39,6 @@ def act(dt: float)
     if isPause
         return
 
-    if get_key_down(VK_C)
-        startCorovan()
-
     sceneUpdate(dt)
 
 [export]
@@ -56,6 +53,7 @@ def draw
  *
  * ===============================================================================================================
  */
+
 var 
     camera: Camera <- Camera()
     player: Player <- Player()
@@ -197,6 +195,7 @@ def getCenteringTextOffset(str: string; avr: float): int
  *
  * ===============================================================================================================
  */
+
 struct Player
     position: float2 = float2(0, 0)
     maxPositionCoord: float
@@ -659,10 +658,6 @@ def startCorovan()
     if corovan.isStart
         return
 
-    corovan.isStart = true
-    corovan.isRobbed = false
-
-    debug(corovan.corovanStoryInd)
     var startPosition: float2 = map.road[0]
     for phrase in corovanDialogos[corovan.corovanStoryInd]
         var corovaner: Corovaner <- Corovaner()
@@ -676,6 +671,9 @@ def startCorovan()
 
         emplace(corovan.corovaners, corovaner)
         startPosition.y += titleSize * 2.5
+
+    corovan.isStart = true
+    corovan.isRobbed = false
 
 def corovanerInteract(var interactable: Interactable)
     var pCorovaner: Corovaner? = unsafe(addr(unsafe(upcast<Corovaner> interactable)))
@@ -697,9 +695,14 @@ def corovanUpdate(dt: float)
         else
             isRobbedEveryone &&= corovan.corovaners[idx].isRobbed
         idx--
-    
+
     corovan.isRobbed = isRobbedEveryone
-    if corovan.isRobbed
+
+    if corovan.isRobbed && corovan.isStart
+        elf.elfStoryInd++
+        elf.elfPhraseInd = 0
+        elf.dialogCleanTimer = elfDialogCleanTimer
+
         corovan.isStart = false
         corovan.corovanStoryInd++
         if corovan.corovanStoryInd == length(corovanDialogos)
@@ -755,18 +758,24 @@ def corovanRender()
 /*
  * ===============================================================================================================
  *
- * ELF
+ * ELF (NOT ELF!)
  *
  * ===============================================================================================================
  */
 
-struct Elf: Dialogable //not elf
+let
+    elfDialogCleanTimer: float = 100.0
+
+struct Elf: Dialogable
     override position: float2 = float2(600.0, -titleSize)
 
     override interactText = "[F] говорить"
     override interact = @@elfInteract
     
-    override dialogCleanTimerMax = 100.0
+    override dialogCleanTimerMax = elfDialogCleanTimer
+    elfStoryInd: int = 0
+    elfPhraseInd: int = 0
+    elfChoice: int = 0
 
 def elfInit()
     elf.interactTextOffset.x -= getStrPixelWidth(elf.interactText, interactTextAvrWidth) / 2.0
@@ -790,8 +799,30 @@ def elfRender()
 def elfInteract(var interactable: Interactable)
     if elf.dialogPrinting
         elf->endPrintingDialog()
+        return
+    
+    var phrase: string
+    if elf.elfPhraseInd == length(elfDialogos[elf.elfStoryInd])
+        if elf.elfStoryInd == 0
+            phrase = "Потом договорим! Грабь КОРОВАНЫ!"
+        elif elf.elfStoryInd == 1
+            phrase = "КОРОВАНЫ! КОРОВАНЫ! Грабь КОРОВАНЫ!"
+        elif elf.elfStoryInd == 2 && elf.elfChoice == 1
+            phrase = "Вжух......"
+        elif elf.elfStoryInd == 2 && elf.elfChoice == 2
+            phrase = "Мур-мур-мяу"
+        else
+            phrase = "..."
     else
-        elf->printDialog("Hello! Привет? Hello... Привет. Hello! Hello... Привет. Hello!")
+        phrase = elfDialogos[elf.elfStoryInd][elf.elfPhraseInd]
+        elf.elfPhraseInd++
+    
+    elf->printDialog(phrase)
+    if elf.elfPhraseInd == length(elfDialogos[elf.elfStoryInd]) && (elf.elfStoryInd == 0 || elf.elfStoryInd == 1)
+        startCorovan()
+        elf.dialogCleanTimer = 5.0
+        elf.dialogCleanTimerMax = 5.0
+
 
 /*
  * ===============================================================================================================
@@ -1042,30 +1073,31 @@ def getStrPixelWidth(str: string; average: float): float
  * ===============================================================================================================
  */
 
-var
-    elfFirst = [[string[]
+let elfDialogos <- [{array<string>
+    [{string
         "Rrrrr1";
         "Rrrrr2";
         "Rrrrr3";
         "Rrrrr4";
         "Rrrrr5"
-    ]]
+    }];
 
-    elfSecond = [[string[]
+    [{string
         "Ttttt1";
         "Ttttt2";
         "Ttttt3";
         "Ttttt4";
         "Ttttt5"
-    ]]
+    }];
 
-    elfThird = [[string[]
+    [{string
         "Yyyyy1";
         "Yyyyy2";
         "Yyyyy3";
         "Yyyyy4";
         "Yyyyy5"
-    ]]
+    }]
+}]
 
 let corovanDialogos <- [{array<string>
     [{string
@@ -1081,6 +1113,6 @@ let corovanDialogos <- [{array<string>
         "Не утруждайте себя - мой скромный скарб трудно сбыть и он не принесёт большой прибыли";
         "Я бы с радостью дал себя ограбить, но сегодня последний вторник месяца - неприёмный день для грабителей. Увы.";
         "Я Герцог Дрешибский, Князь Выребский, и я буду оскорблён, если меня ограбит некто, не имеющий в своей титулатуре хотя бы звания барона.";
-        "У меня для Вас подарок. Берите, не стесняйтесь. Я всегда рад встрече с путником. В пустыне это редкость. Встреча с другим разумным существом. Доброго Вам пути."
+        "У меня для Вас подарок. Берите, не стесняйтесь. Я всегда рад встрече с путником. В пустыне это редкость: встреча с другим разумным существом. Доброго Вам пути."
     }]
 }]
