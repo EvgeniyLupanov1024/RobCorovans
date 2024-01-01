@@ -495,7 +495,11 @@ def InteractableRender(var interactable: Interactable; var transparent: float)
  */
 
 let 
-    dialogOffset: float2 = float2(0.0, -50.0)
+    dialogOffset: float2 = float2(0.0, -55.0)
+    dialogFontSize: float = 20.0
+    dialogFontAvrWidth: float = dialogFontSize * 0.57
+    dialogLetterInLineMax: int = 30
+    dialogLineHeight: float = dialogFontSize * 1.5
 
 struct Dialogable: Interactable
     override position: float2
@@ -503,10 +507,11 @@ struct Dialogable: Interactable
     printDialog = @@printDialog
     endPrintingDialog = @@endPrintingDialog
 
-    dialogText: string
+    dialogText: array<string>
     dialogPrinting: bool = false
     dialogOffset: float2 = dialogOffset
     
+    dialogLineInd: int = 0    
     dialogLetterInd: int = 0
     dialogLetterTimer: float = 0.0
     dialogLetterTimerMax: float = 0.043
@@ -518,20 +523,51 @@ struct Dialogable: Interactable
     dialogableRender = @@dialogableRender
 
 def printDialog(var dialogable: Dialogable; str: string)
-    dialogable.dialogText = str
     dialogable.dialogPrinting = true
+    dialogable.dialogLineInd = 0
     dialogable.dialogLetterInd = 0
+    clear(dialogable.dialogText)
+
+    var startInd: int = 0
+    var lastSpaceInd: int = dialogLetterInLineMax
+    var utf: bool = false
+    var singCoutn: int = 0
+    var singCoutnBeforeSpace: int = 0
+
+    for ind in range(length(str))
+        var ch: int = unsafe(character_uat(str, ind))
+        
+        if utf
+            utf = false
+            continue
+
+        if ch > 128
+            utf = true
+        elif is_white_space(ch)
+            lastSpaceInd = ind
+            singCoutnBeforeSpace = singCoutn
+
+        singCoutn++
+        if singCoutn > dialogLetterInLineMax
+            push(dialogable.dialogText, slice(str, startInd, lastSpaceInd))
+            singCoutn -= singCoutnBeforeSpace 
+            startInd = lastSpaceInd + 1
+
+    push(dialogable.dialogText, slice(str, startInd, length(str)))
+    dialogable.dialogOffset.y = dialogOffset.y - dialogLineHeight * float(length(dialogable.dialogText) - 1)
+    dialogable.dialogOffset.x = dialogOffset.x - getStrPixelWidth(dialogable.dialogText[0], dialogFontAvrWidth) / 2.0
 
 def endPrintingDialog(var dialogable: Dialogable)
     dialogable.dialogPrinting = false
+    dialogable.dialogLineInd = length(dialogable.dialogText)
+    dialogable.dialogLetterInd = 0
     dialogable.dialogCleanTimer = dialogable.dialogCleanTimerMax
-    dialogable.dialogLetterInd = length(dialogable.dialogText)
 
 def dialogableUpdate(var dialogable: Dialogable; dt: float)
     if dialogable.dialogCleanTimer > 0.0
         dialogable.dialogCleanTimer -= dt
         if dialogable.dialogCleanTimer <= 0.0
-            dialogable.dialogLetterInd = 0
+            clear(dialogable.dialogText)
 
     if !dialogable.dialogPrinting
         return
@@ -540,7 +576,7 @@ def dialogableUpdate(var dialogable: Dialogable; dt: float)
     if dialogable.dialogLetterTimer > 0.0
         return
 
-    var ch: int = unsafe(character_uat(dialogable.dialogText, dialogable.dialogLetterInd))
+    var ch: int = unsafe(character_uat(dialogable.dialogText[dialogable.dialogLineInd], dialogable.dialogLetterInd))
     if ch > 128
         dialogable.dialogLetterInd++
     elif ch == '.' || ch == '!' || ch == '?'
@@ -548,22 +584,36 @@ def dialogableUpdate(var dialogable: Dialogable; dt: float)
 
     dialogable.dialogLetterTimer += dialogable.dialogLetterTimerMax
     dialogable.dialogLetterInd++
-    if dialogable.dialogLetterInd == length(dialogable.dialogText)
-        dialogable.dialogPrinting = false
-        dialogable.dialogCleanTimer = dialogable.dialogCleanTimerMax
+    if dialogable.dialogLetterInd == length(dialogable.dialogText[dialogable.dialogLineInd])
+        dialogable.dialogLineInd++
+        dialogable.dialogLetterInd = 0
+        if dialogable.dialogLineInd == length(dialogable.dialogText)
+            dialogable.dialogPrinting = false
+            dialogable.dialogCleanTimer = dialogable.dialogCleanTimerMax
 
 def dialogableRender(var dialogable: Dialogable)
     var transparent: float = getCosLookToObject(dialogable.position) * 55.0 + 200.0
     transparent *= proximityToMapBorder(dialogable.position, deepTransparentArea)
     
-    set_font_size(22.0)
+    set_font_size(dialogFontSize)
     set_font_name("noita.ttf")
-    text_out(
-        dialogable.position.x - camera.screenPosition.x + dialogable.dialogOffset.x, 
-        dialogable.position.y - camera.screenPosition.y + dialogable.dialogOffset.y,
-        slice(dialogable.dialogText, 0, dialogable.dialogLetterInd),
-        0xEEDD77 + floatToTransparent(transparent)
-    )
+
+    for lineInd in range(dialogable.dialogLineInd + 1)
+        if lineInd == length(dialogable.dialogText)
+            break
+
+        var letterInd: int
+        if lineInd == dialogable.dialogLineInd
+            letterInd = dialogable.dialogLetterInd
+        else 
+            letterInd = length(dialogable.dialogText[lineInd])
+
+        text_out(
+            dialogable.position.x - camera.screenPosition.x + dialogable.dialogOffset.x, 
+            dialogable.position.y - camera.screenPosition.y + dialogable.dialogOffset.y + dialogLineHeight * float(lineInd),
+            slice(dialogable.dialogText[lineInd], 0, letterInd),
+            0xEEDD77 + floatToTransparent(transparent)
+        )
 
 /*
  * ===============================================================================================================
@@ -687,7 +737,7 @@ def corovanRender()
  * ===============================================================================================================
  */
 
-struct Elf: Dialogable
+struct Elf: Dialogable //not elf
     override position: float2 = float2(600.0, -titleSize)
 
     override interactText = "[F] говорить"
@@ -719,7 +769,7 @@ def elfInteract(var interactable: Interactable)
     if elf.dialogPrinting
         elf->endPrintingDialog()
     else
-        elf->printDialog("Hello! Привет? Hello... Привет. Hello!")
+        elf->printDialog("Hello! Привет? Hello... Привет. Hello! Hello... Привет. Hello!")
 
 /*
  * ===============================================================================================================
