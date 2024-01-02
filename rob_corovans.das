@@ -110,13 +110,13 @@ def cameraRender()
 
     mapRender()
     footprintsRender()
-    dustsRender()
+    grainsRender()
 
     playerRender()
     elfRender()
     corovanRender()
 
-    stormRender()
+    dustsRender()
 
     guiRender()
 
@@ -899,20 +899,16 @@ def elfInteract(var interactable: Interactable)
 
 let
     stormArea: float = float(get_screen_width()) * 0.8
-    maxDustCount: int = 128
-    maxSwirlCount: int = 32
+    maxDustCount: int = 256
     maxGrainCount: int = 1024
     
     maxWindForce: float = 200.0
     windDirTimer: float = 7.0
-    // windForceTimer: float = 37.0
     windForceTimer: float = 7.0
 
 struct Storm
     dusts: Dust[maxDustCount]
     dustInd: int = 0
-    swirls: Swirl[maxSwirlCount]
-    swirlInd: int = 0
     grains: Grain[maxGrainCount]
     grainInd: int = 0
 
@@ -930,26 +926,29 @@ def stormInit()
 def stormUpdate(dt: float)
     windUpdate(dt)
 
-    addDust()
-    addSwirl()
+    // dust
+    if random_float(seed) < 0.001 * storm.windForce
+        addDust()
 
+    // grain
     if storm.windForce > 130.0 
+        addDust()
         if storm.dustPerFrame != 100
             storm.dustPerFrame++
     elif storm.windForce > 60.0 
-        if storm.dustPerFrame < 10
+        if storm.dustPerFrame < 10 && random_float(seed) < 0.1
             storm.dustPerFrame++
         elif storm.dustPerFrame > 10
             storm.dustPerFrame--
     else
-        if storm.dustPerFrame > 0
+        if storm.dustPerFrame > 0 && random_float(seed) < 0.1
             storm.dustPerFrame--
  
     for i in range(storm.dustPerFrame)
         addGrain()
 
+    // update
     dustsUpdate(dt)
-    swirlsUpdate(dt)
     grainsUpdate(dt)
 
 def windUpdate(dt: float)
@@ -969,10 +968,6 @@ def windUpdate(dt: float)
         else 
             storm.windForce += windForceOffset
 
-def stormRender()
-    swirlsRender()
-    grainsRender()
-
 /*
 * ===============================================================================================================
 *
@@ -984,46 +979,59 @@ def stormRender()
 struct Dust
     position: float2
     distanceWented: float = 0.0
-    maxDistance: float
+    maxDistanceStart: float
+    maxDistanceEnd: float
     speed: float2
 
     transparent: float = 0.0
     alive: bool = false
 
 def addDust(): void
-    return
+    var dust: Dust = Dust()
+    dust.position = float2(
+        player.position.x + (random_float(seed) - 0.5) * stormArea * 2.0, 
+        player.position.y + (random_float(seed) - 0.5) * stormArea * 2.0
+    )
+    dust.maxDistanceStart = storm.windForce * (random_float(seed) + 0.5)
+    dust.maxDistanceEnd = dust.maxDistanceStart * (random_float(seed) + 1.0)
+    dust.speed = storm.windDir * dust.maxDistanceStart * 2.0
+    dust.alive = true
+
+    storm.dusts[storm.dustInd] = dust
+    storm.dustInd++
+    if storm.dustInd == maxDustCount
+        storm.dustInd = 0
 
 def dustsUpdate(dt: float): void
-    return
+    for dust in storm.dusts
+        if !dust.alive
+            continue
 
+        dust.position += dust.speed * dt
+        dust.distanceWented += length(dust.speed * dt)
+
+        if dust.distanceWented < dust.maxDistanceStart
+            dust.transparent = dust.distanceWented / dust.maxDistanceStart
+
+        elif dust.distanceWented > dust.maxDistanceEnd
+            dust.transparent -= dt
+            if dust.transparent < 0.0
+                dust.alive = false
+        
 def dustsRender(): void
-    return
+    for dust in storm.dusts
+        if !dust.alive
+            continue
 
-/*
-* ===============================================================================================================
-*
-* SWIRL
-*
-* ===============================================================================================================
-*/
-
-struct Swirl
-    position: float2
-    distanceWented: float = 0.0
-    maxDistance: float
-    speed: float2
-
-    transparent: float = 0.0
-    alive: bool = false
-
-def addSwirl(): void
-    return
-
-def swirlsUpdate(dt: float): void
-    return
-
-def swirlsRender(): void
-    return
+        // var transparent: float = (getCosLookToObject(dust.position) + 1.5) * 128.0 * dust.transparent
+        var transparent: float = (getCosLookToObject(dust.position) + 1.5) * 50.0 * dust.transparent
+        fill_rect(
+            dust.position.x - camera.screenPosition.x, 
+            dust.position.y - camera.screenPosition.y, 
+            100.0, 
+            100.0, 
+            0xEEEEBB + floatToTransparent(transparent)
+        )
 
 /*
 * ===============================================================================================================
