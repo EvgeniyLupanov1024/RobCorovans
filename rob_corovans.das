@@ -76,10 +76,8 @@ def sceneUpdate(dt: float)
     elfUpdate(dt)
     corovanUpdate(dt)
 
-    pCurInteractable = getNearestInteractable()
-
-    stormUpdate(dt)
     footprintsUpdate(dt)
+    stormUpdate(dt)
 
     cameraUpdate(dt)
 
@@ -112,6 +110,7 @@ def cameraRender()
 
     mapRender()
     footprintsRender()
+    dustsRender()
 
     playerRender()
     elfRender()
@@ -232,6 +231,8 @@ struct Player
     distToFootprint: float
     leftFootprint: bool = false
 
+    pCurInteractable: Interactable? = null
+
     choice: bool = false
 
 def playerInit()
@@ -245,6 +246,8 @@ def playerUpdate(dt: float)
     playerSpeedUpdate()
     playerLookUpdate()
     playerChoice()
+
+    player.pCurInteractable = getNearestInteractable()
 
 def playerMove(dt: float)
     player.position += player.speed * dt
@@ -468,9 +471,6 @@ let
     interactTextFontSize: int = 16
     interactTextAvrWidth: float = float(interactTextFontSize) * 0.66
 
-var 
-    pCurInteractable: Interactable? = null
-
 struct Interactable
     position: float2
     interactText: string = "[F] interact"
@@ -509,7 +509,7 @@ def getNearestInteractable(): Interactable?
         return pNearestInteractable
 
 def InteractableUpdate(var interactable: Interactable; dt: float)
-    if unsafe(addr(interactable)) != pCurInteractable
+    if unsafe(addr(interactable)) != player.pCurInteractable
         if interactable.interactTextTransparent > 0.0
             interactable.interactTextTransparent = max(interactable.interactTextTransparent - dt * 4.0, 0.0)
         return
@@ -898,16 +898,25 @@ def elfInteract(var interactable: Interactable)
  */
 
 let
-    maxSwirlCount: int = 256
     stormArea: float = float(get_screen_width()) * 0.8
+    maxDustCount: int = 128
+    maxSwirlCount: int = 32
+    maxGrainCount: int = 1024
     
     maxWindForce: float = 200.0
     windDirTimer: float = 7.0
-    windForceTimer: float = 37.0
+    // windForceTimer: float = 37.0
+    windForceTimer: float = 7.0
 
 struct Storm
+    dusts: Dust[maxDustCount]
+    dustInd: int = 0
     swirls: Swirl[maxSwirlCount]
     swirlInd: int = 0
+    grains: Grain[maxGrainCount]
+    grainInd: int = 0
+
+    dustPerFrame: int = 0
 
     windDir: float2 = float2(1.0, 0.0)
     windForce: float = 100.0
@@ -915,56 +924,33 @@ struct Storm
     windDirChangeTimer: float = 0.0
     windForceChangeTimer: float = 0.0
 
-struct Swirl
-    position: float2
-    distanceWented: float = 0.0
-    maxDistance: float
-    speed: float2
-    size: float
-
-    transparent: float = 0.0
-    alive: bool = false
-
 def stormInit()
     storm.windDir = randVec()
 
 def stormUpdate(dt: float)
-    addSwirl()
-    swirlsUpdate(dt)
     windUpdate(dt)
 
-def addSwirl()
-    if random_float(seed) < 0.95
-        var swirl: Swirl = Swirl()
-        swirl.position = float2(
-            player.position.x + (random_float(seed) * stormArea * 2.0) - stormArea, 
-            player.position.y + (random_float(seed) * stormArea * 2.0) - stormArea
-        )
-        swirl.maxDistance = storm.windForce * (random_float(seed) + 0.5)
-        swirl.size = random_float(seed) * 10.0 + 5.0
-        swirl.alive = true
+    addDust()
+    addSwirl()
 
-        storm.swirls[storm.swirlInd] = swirl
-        storm.swirlInd++
-        if storm.swirlInd == maxSwirlCount
-            storm.swirlInd = 0
+    if storm.windForce > 130.0 
+        if storm.dustPerFrame != 100
+            storm.dustPerFrame++
+    elif storm.windForce > 60.0 
+        if storm.dustPerFrame < 10
+            storm.dustPerFrame++
+        elif storm.dustPerFrame > 10
+            storm.dustPerFrame--
+    else
+        if storm.dustPerFrame > 0
+            storm.dustPerFrame--
+ 
+    for i in range(storm.dustPerFrame)
+        addGrain()
 
-def swirlsUpdate(dt: float)
-    for swirl in storm.swirls
-        if !swirl.alive
-            continue
-
-        swirl.position += swirl.speed * dt
-        swirl.distanceWented += length(swirl.speed * dt)
-
-        if swirl.distanceWented > swirl.maxDistance
-            swirl.speed *= 0.9
-            swirl.transparent -= 5.0
-            if swirl.transparent < 5.0
-                swirl.alive = false
-        else
-            swirl.speed += storm.windDir * storm.windForce / swirl.size
-            swirl.transparent = swirl.distanceWented * 255.0 / swirl.maxDistance
+    dustsUpdate(dt)
+    swirlsUpdate(dt)
+    grainsUpdate(dt)
 
 def windUpdate(dt: float)
     storm.windDirChangeTimer -= dt
@@ -984,12 +970,119 @@ def windUpdate(dt: float)
             storm.windForce += windForceOffset
 
 def stormRender()
-    for swirl in storm.swirls
-        var transparent: float = ((getCosLookToObject(swirl.position) + 1.05) / 2.0) * swirl.transparent
+    swirlsRender()
+    grainsRender()
+
+/*
+* ===============================================================================================================
+*
+* DUST
+*
+* ===============================================================================================================
+*/
+
+struct Dust
+    position: float2
+    distanceWented: float = 0.0
+    maxDistance: float
+    speed: float2
+
+    transparent: float = 0.0
+    alive: bool = false
+
+def addDust(): void
+    return
+
+def dustsUpdate(dt: float): void
+    return
+
+def dustsRender(): void
+    return
+
+/*
+* ===============================================================================================================
+*
+* SWIRL
+*
+* ===============================================================================================================
+*/
+
+struct Swirl
+    position: float2
+    distanceWented: float = 0.0
+    maxDistance: float
+    speed: float2
+
+    transparent: float = 0.0
+    alive: bool = false
+
+def addSwirl(): void
+    return
+
+def swirlsUpdate(dt: float): void
+    return
+
+def swirlsRender(): void
+    return
+
+/*
+* ===============================================================================================================
+*
+* GRAIN
+*
+* ===============================================================================================================
+*/
+
+struct Grain
+    position: float2
+    distanceWented: float = 0.0
+    maxDistance: float
+    speed: float2
+
+    transparent: float = 0.0
+    alive: bool = false
+
+def addGrain(): void
+    var grain: Grain = Grain()
+    grain.position = float2(
+        player.position.x + (random_float(seed) - 0.5) * stormArea * 2.0, 
+        player.position.y + (random_float(seed) - 0.5) * stormArea * 2.0
+    )
+    grain.maxDistance = storm.windForce * (random_float(seed) + 0.5)
+    grain.alive = true
+
+    storm.grains[storm.grainInd] = grain
+    storm.grainInd++
+    if storm.grainInd == maxGrainCount
+        storm.grainInd = 0
+
+def grainsUpdate(dt: float): void
+    for grain in storm.grains
+        if !grain.alive
+            continue
+
+        grain.position += grain.speed * dt
+        grain.distanceWented += length(grain.speed * dt)
+
+        if grain.distanceWented > grain.maxDistance
+            grain.speed *= 0.7
+            grain.transparent -= dt / 10.0
+            if grain.transparent < 0.0
+                grain.alive = false
+        else
+            grain.speed += storm.windDir * storm.windForce * 3.0
+            grain.transparent = grain.distanceWented / grain.maxDistance
+
+def grainsRender(): void
+    for grain in storm.grains
+        if !grain.alive
+            continue
+
+        var transparent: float = (getCosLookToObject(grain.position) + 1.5) * 128.0 * grain.transparent
         fill_circle(
-            swirl.position.x - camera.screenPosition.x, 
-            swirl.position.y - camera.screenPosition.y, 
-            swirl.size, 
+            grain.position.x - camera.screenPosition.x, 
+            grain.position.y - camera.screenPosition.y, 
+            2.5, 
             0xEEEEBB + floatToTransparent(transparent)
         )
 
