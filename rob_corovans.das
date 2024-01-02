@@ -224,6 +224,7 @@ struct Player
     lookLen: float
     alive: bool = true
 
+    maxMoveSpeed: float = 300.0
     moveSpeed: float = 30.0
     speed: float2
 
@@ -288,6 +289,10 @@ def playerSpeedUpdate()
     moveDir = normalize(moveDir)
 
     player.speed += moveDir * player.moveSpeed
+    if storm.windForce > 130.0
+        player.speed += storm.wind * 0.1
+    if length(player.speed) > player.maxMoveSpeed
+        player.speed = normalize(player.speed) * player.maxMoveSpeed
     player.speed *= 0.9
 
 def playerLookUpdate()
@@ -916,6 +921,7 @@ struct Storm
 
     windDir: float2 = float2(1.0, 0.0)
     windForce: float = 100.0
+    wind: float2 = float2(100.0, 0.0)
     
     windDirChangeTimer: float = 0.0
     windForceChangeTimer: float = 0.0
@@ -958,6 +964,8 @@ def windUpdate(dt: float)
     if storm.windDirChangeTimer <= 0.0
         storm.windDirChangeTimer = windDirTimer + (random_float(seed) - 0.5) * windDirTimer
         storm.windDir = normalize(storm.windDir + randVec() / 3.0)
+        
+        storm.wind = storm.windDir * storm.windForce
 
     if storm.windForceChangeTimer <= 0.0
         storm.windForceChangeTimer = windForceTimer + (random_float(seed) - 0.5) * 10.0
@@ -967,6 +975,8 @@ def windUpdate(dt: float)
             storm.windForce -= windForceOffset
         else 
             storm.windForce += windForceOffset
+
+        storm.wind = storm.windDir * storm.windForce
 
 /*
 * ===============================================================================================================
@@ -1065,6 +1075,9 @@ def addGrain(): void
         storm.grainInd = 0
 
 def grainsUpdate(dt: float): void
+    var windSpeed: float2 = storm.wind * 3.0
+    var dVanish: float = dt / 10.0
+
     for grain in storm.grains
         if !grain.alive
             continue
@@ -1074,11 +1087,11 @@ def grainsUpdate(dt: float): void
 
         if grain.distanceWented > grain.maxDistance
             grain.speed *= 0.7
-            grain.transparent -= dt / 10.0
+            grain.transparent -= dVanish
             if grain.transparent < 0.0
                 grain.alive = false
         else
-            grain.speed += storm.windDir * storm.windForce * 3.0
+            grain.speed += windSpeed
             grain.transparent = grain.distanceWented / grain.maxDistance
 
 def grainsRender(): void
