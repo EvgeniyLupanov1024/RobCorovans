@@ -309,14 +309,17 @@ def playerChoice()
         elf.elfChoice = 1
         elf.dialogCleanTimerMax = 5.0
         elf.vanishing = true
-        clear(elf.dialogText)
+        elf.dialogVanishing = true
 
     elif get_key(VK_2)
         player.choice = false
 
         elf.elfChoice = 2
         elf.dialogCleanTimerMax = 5.0
-        clear(elf.dialogText)
+        elf.dialogVanishing = true
+
+        storm.windForce = -0.0001
+        storm.windForceChangeTimer = 10000.0
 
 def getCosLookToObject(objPos: float2): float
     if player.lookLen == 0.0
@@ -569,6 +572,8 @@ struct Dialogable: Interactable
 
     dialogCleanTimer: float = 0.0
     dialogCleanTimerMax: float = 20.0
+    dialogVanishing: bool = false
+    dialogTransparent: float = 1.0
 
     dialogableUpdate = @@dialogableUpdate
     dialogableRender = @@dialogableRender
@@ -577,6 +582,9 @@ def printDialog(var dialogable: Dialogable; str: string)
     dialogable.dialogPrinting = true
     dialogable.dialogLineInd = 0
     dialogable.dialogLetterInd = 0
+
+    dialogable.dialogVanishing = false
+    dialogable.dialogTransparent = 1.0
     clear(dialogable.dialogText)
 
     var startInd: int = 0
@@ -618,10 +626,13 @@ def endPrintingDialog(var dialogable: Dialogable)
     dialogable.dialogCleanTimer = dialogable.dialogCleanTimerMax
 
 def dialogableUpdate(var dialogable: Dialogable; dt: float)
+    if dialogable.dialogVanishing && dialogable.dialogTransparent >= 0.0
+        dialogable.dialogTransparent -= dt
+
     if dialogable.dialogCleanTimer > 0.0
         dialogable.dialogCleanTimer -= dt
         if dialogable.dialogCleanTimer <= 0.0
-            clear(dialogable.dialogText)
+            dialogable.dialogVanishing = true
 
     if !dialogable.dialogPrinting
         return
@@ -648,6 +659,7 @@ def dialogableUpdate(var dialogable: Dialogable; dt: float)
 def dialogableRender(var dialogable: Dialogable)
     var transparent: float = getCosLookToObject(dialogable.position) * 55.0 + 200.0
     transparent *= proximityToMapBorder(dialogable.position, deepTransparentArea)
+    transparent *= dialogable.dialogTransparent
     
     set_font_size(dialogFontSize)
     set_font_name("noita.ttf")
@@ -753,7 +765,7 @@ def corovanUpdate(dt: float)
     if corovan.isRobbed && corovan.isStart
         elf.elfStoryInd++
         elf.elfPhraseInd = 0
-        elf.dialogCleanTimer = elfDialogCleanTimer
+        elf.dialogCleanTimerMax = elfDialogCleanTimer
 
         corovan.isStart = false
         corovan.corovanStoryInd++
@@ -825,7 +837,7 @@ struct Elf: Dialogable
     override interact = @@elfInteract
     
     override dialogCleanTimerMax = elfDialogCleanTimer
-    elfStoryInd: int = 0
+    elfStoryInd: int = 2
     elfPhraseInd: int = 0
     elfChoice: int = 0
     vanishing: bool = false
@@ -836,17 +848,16 @@ def elfInit()
     elf.interactTextOffset.x -= getStrPixelWidth(elf.interactText, interactTextAvrWidth) / 2.0
 
 def elfUpdate(dt: float)
-    if !elf.alive
-        return
+    elf->dialogableUpdate(dt)
 
     if elf.vanishing
         elf.elfTransparent -= dt * 0.15
         if elf.elfTransparent <= 0.0
             elf.alive = false
-            clear(elf.dialogText)
+            elf.vanishing = false
 
-    elf->dialogableUpdate(dt)
-    elf->InteractableUpdate(dt)
+    if elf.alive
+        elf->InteractableUpdate(dt)
 
 def elfRender()
     var transparent: float = getCosLookToObject(elf.position) * 125.0 + 125.0
@@ -888,7 +899,6 @@ def elfInteract(var interactable: Interactable)
     if elf.elfPhraseInd == length(elfDialogos[elf.elfStoryInd])
         if elf.elfStoryInd == 0 || elf.elfStoryInd == 1
             startCorovan()
-            elf.dialogCleanTimer = 5.0
             elf.dialogCleanTimerMax = 5.0
         
         elif elf.elfStoryInd == 2 && elf.elfChoice == 0
