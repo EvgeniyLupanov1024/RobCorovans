@@ -57,6 +57,7 @@ def draw
 var 
     tutorial: Tutorial <- Tutorial()
     introduction: Introduction <- Introduction()
+    ending: Ending <- Ending()
     
     map: Map
 
@@ -95,6 +96,9 @@ def sceneUpdate(dt: float)
     stormUpdate(dt)
 
     cameraUpdate(dt)
+
+    if ending.alive
+        endingUpdate(dt)
 
 def sceneRender()
     if tutorial.alive
@@ -348,6 +352,8 @@ def playerChoice()
 
         storm.windForce = -0.0001
         storm.windForceChangeTimer = 10000.0
+
+        // ending.alive = true
 
 def getCosLookToObject(objPos: float2): float
     if player.lookLen == 0.0
@@ -1369,8 +1375,8 @@ let
     gameName: string = "Rob Corovans"
     gameNameOffset: float2 = float2(getCenteringTextOffset(gameName, gameNameFontAvr), 150)
 
-    introductionStartTimerMax: float = 2.0
-    introductionEndTimerMax: float = 4.0
+    introductionStartTimerMax: float = 4.1
+    introductionEndTimerMax: float = 10.0
 
 struct Introduction
     alive: bool = true
@@ -1380,9 +1386,16 @@ struct Introduction
     gameNameVanishing: bool = false
     gameNameTransparent: float = 1.0
 
+    sound: SoundHandle <- create_managed_sound("sounds/Geology_cut.mp3")
+    soundPlaing: bool = false
+
 def introductionUpdate(dt: float)
     if !introduction.alive
         return
+
+    if !introduction.soundPlaing
+        introduction.soundPlaing = true
+        play_sound(introduction.sound, 0.25, 1.01)
 
     if introduction.startTimer < introductionStartTimerMax
         introduction.startTimer += dt
@@ -1411,6 +1424,35 @@ def introductionRender()
     set_font_size(gameNameFontSize)
     set_font_name("fonts/noita_main.ttf")
     text_out(gameNameOffset.x, gameNameOffset.y, gameName, 0xEE7744 + floatToTransparent(255.0 * introduction.gameNameTransparent))
+
+/*
+ * ===============================================================================================================
+ *
+ * ENDING
+ *
+ * ===============================================================================================================
+ */
+
+let
+    endingSoundTimerMax: float = 15.0
+
+struct Ending
+    alive: bool = false
+    sound: SoundHandle <- create_managed_sound("sounds/Auriga's Song.mp3")
+    soundTimer: float = 0.0
+    soundStart: bool = true
+
+def endingUpdate(dt: float)
+    if !ending.alive
+        return
+
+    if ending.soundTimer < endingSoundTimerMax
+        ending.soundTimer += dt
+        return
+
+    if ending.soundStart
+        play_sound(ending.sound, 0.25, 1.01)
+        ending.soundStart = false
 
 /*
  * ===============================================================================================================
