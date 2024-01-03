@@ -1079,7 +1079,7 @@ struct Dust
     alive: bool = false
 
 def addDust(): void
-    var dust: Dust = Dust()
+    var dust: Dust <- Dust()
     dust.position = float2(
         player.position.x + (random_float(seed) - 0.5) * stormArea * 2.0, 
         player.position.y + (random_float(seed) - 0.5) * stormArea * 2.0
@@ -1143,7 +1143,7 @@ struct Grain
     alive: bool = false
 
 def addGrain(): void
-    var grain: Grain = Grain()
+    var grain: Grain <- Grain()
     grain.position = float2(
         player.position.x + (random_float(seed) - 0.5) * stormArea * 2.0, 
         player.position.y + (random_float(seed) - 0.5) * stormArea * 2.0
@@ -1292,6 +1292,9 @@ struct Tutorial
     nextTextShow: bool = false
     nextTextTransparent: float = 0.0
 
+    // soundAccept: SoundHandle <- create_managed_sound("sounds/afro_drum.mp3")
+    soundAccept: SoundHandle <- create_managed_sound("sounds/dum.mp3")
+
 def tutorialUpdate(dt: float)
     if !tutorial.alive
         return
@@ -1319,6 +1322,7 @@ def tutorialUpdate(dt: float)
 
     if get_key_down(VK_F) && tutorial.nextTextShow
         tutorial.vanishing = true
+        play_sound(tutorial.soundAccept, 0.4, 0.55)
 
 def tutorialRender()
     if !tutorial.alive
@@ -1381,7 +1385,7 @@ let
     authorNameOffset: float2 = float2(getCenteringTextOffset(authorName, authorNameFontAvr), 300)
 
     introductionStartTimerMax: float = 4.1
-    introductionEndTimerAuthor: float = 6.0
+    introductionEndTimerAuthor: float = 6.1
     introductionEndTimerMax: float = 11.2
 
 struct Introduction
