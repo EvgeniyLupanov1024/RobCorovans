@@ -55,13 +55,19 @@ def draw
  */
 
 var 
-    camera: Camera <- Camera()
-    player: Player <- Player()
+    tutorial: Tutorial <- Tutorial()
+    introduction: Introduction <- Introduction()
+    
     map: Map
+
+    player: Player <- Player()
     corovan: Corovan <- Corovan()
     elf: Elf <- Elf()
+    
     storm: Storm <- Storm()
     footprints: Footprints <- Footprints()
+    
+    camera: Camera <- Camera()
 
 def sceneInit()
     generateMap()
@@ -72,6 +78,14 @@ def sceneInit()
     stormInit()
 
 def sceneUpdate(dt: float)
+    if tutorial.alive
+        tutorialUpdate(dt)
+        return
+
+    if introduction.alive
+        introductionUpdate(dt)
+        return
+
     playerUpdate(dt)
     elfUpdate(dt)
     corovanUpdate(dt)
@@ -82,6 +96,14 @@ def sceneUpdate(dt: float)
     cameraUpdate(dt)
 
 def sceneRender()
+    if tutorial.alive
+        tutorialRender()
+        return
+
+    if introduction.alive
+        introductionRender()
+        return
+
     cameraRender()
 
 /*
@@ -1236,6 +1258,118 @@ def footprintsRender()
             7.0, 
             footprint.color + floatToTransparent(transparent)
         )
+
+/*
+ * ===============================================================================================================
+ *
+ * TUTORIAL
+ *
+ * ===============================================================================================================
+ */
+
+let
+    tutorialFontSize: float = 20.0
+    tutorialFontAvr: float = tutorialFontSize * 0.6
+    tutorialFontLineHeight: int = int(tutorialFontSize * 1.5)
+
+    tutorialNextText: string = "Нажмите [F] чтобы продолжить"
+    tutorialNextTextOffset: float2 = float2(getCenteringTextOffset(tutorialNextText, tutorialFontAvr), get_screen_height() - 150)
+    tutorialNextTextTimerMax: float = 3.0
+
+struct Tutorial
+    alive: bool = true
+    transparent: float = 0.0
+    vanishing: bool = false
+
+    nextTextTimer: float = 0.0
+    nextTextShow: bool = false
+    nextTextTransparent: float = 0.0
+
+def tutorialUpdate(dt: float)
+    if !tutorial.alive
+        return
+
+    if !tutorial.vanishing && tutorial.transparent < 1.0
+        tutorial.transparent += dt * 0.5
+        if tutorial.transparent >= 1.0
+            tutorial.transparent = 1.0
+    elif tutorial.vanishing && tutorial.transparent > 0.0
+        tutorial.transparent -= dt * 0.5
+        if tutorial.transparent <= 0.0
+            tutorial.transparent = 0.0
+            tutorial.alive = false
+
+    if tutorial.transparent == 1.0
+        tutorial.nextTextTimer += dt
+
+    if tutorial.nextTextTimer > tutorialNextTextTimerMax
+        tutorial.nextTextShow = true
+
+    if tutorial.nextTextShow
+        tutorial.nextTextTransparent += dt * 0.5
+        if tutorial.nextTextTransparent >= 1.0
+            tutorial.nextTextTransparent = 1.0
+
+    if get_key_down(VK_F) && tutorial.nextTextShow
+        tutorial.vanishing = true
+
+def tutorialRender()
+    if !tutorial.alive
+        return
+
+    set_font_size(tutorialFontSize)
+    set_font_name("fonts/noita.ttf")
+    var color: uint = 0xDDAA55 + floatToTransparent(255.0 * tutorial.transparent)
+    var colorNext: uint = 0xDDAA55 + floatToTransparent(255.0 * tutorial.nextTextTransparent * tutorial.transparent)
+        
+    var y: int = 130
+    text_out(150, y, "УПРАВЛЕНИЕ:", color)
+
+    y += tutorialFontLineHeight * 2
+    text_out(150, y, "[A] [W] [S] [D]  перемещение", color)
+
+    y += tutorialFontLineHeight
+    text_out(150, y, "[F]  взаимодействие", color)
+
+    y += tutorialFontLineHeight
+    text_out(150, y, "[mouse]  направление взгляда", color)
+
+    y += tutorialFontLineHeight
+    text_out(150, y, "[Esc]  выход", color)
+
+    // highlight
+    color = 0xDDCC77 + floatToTransparent(85.3 * tutorial.transparent * (cos(get_time_after_start()) + 2.0))
+    y = 130
+    y += tutorialFontLineHeight * 2
+    text_out(150, y, "[A] [W] [S] [D]", color)
+
+    y += tutorialFontLineHeight
+    text_out(150, y, "[F]", color)
+
+    y += tutorialFontLineHeight
+    text_out(150, y, "[mouse]", color)
+
+    y += tutorialFontLineHeight
+    text_out(150, y, "[Esc]", color)
+
+    // next
+    text_out(tutorialNextTextOffset.x, tutorialNextTextOffset.y, tutorialNextText, colorNext)
+/*
+ * ===============================================================================================================
+ *
+ * INTRODUCTION
+ *
+ * ===============================================================================================================
+ */
+
+struct Introduction
+    alive: bool = true
+
+def introductionUpdate(dt: float)
+    return
+
+def introductionRender()
+    return
 
 /*
  * ===============================================================================================================
