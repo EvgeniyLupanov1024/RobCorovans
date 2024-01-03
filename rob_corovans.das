@@ -151,6 +151,7 @@ let
     
 def guiRender()
     debugRender()
+    return
 
 def debugRender()
     set_font_size(16)
@@ -163,11 +164,11 @@ def debugRender()
     text_out(debugTextOffset, y, "Взгляд: ({player.lookPoint})", debugTextColor)
 
     y += debugTextOffset
-    text_out(debugTextOffset, y, "Ветер: {storm.windDir} | {storm.windForce}", debugTextColor)
+    text_out(debugTextOffset, y, "Ветер: {storm.windDir} | {storm.windForce} | {storm.windSoundVal} | {storm.stormSoundVal}", debugTextColor)
 
 def exitFromMapRender(transparent: float)
     set_font_size(exitTextFontSize)
-    set_font_name("Shadower.ttf")
+    set_font_name("fonts/Shadower.ttf")
     text_out(
         getCenteringTextOffset(exitTextBorder, exitTextAvrWidth),
         150, 
@@ -177,7 +178,7 @@ def exitFromMapRender(transparent: float)
 
 def lostInDesertRender()
     set_font_size(exitTextFontSize)
-    set_font_name("Shadower.ttf")
+    set_font_name("fonts/Shadower.ttf")
     text_out(
         getCenteringTextOffset(exitTextLost, exitTextAvrWidth),
         150, 
@@ -195,7 +196,7 @@ def lostInDesertRender()
 
 def playerChoiceRender()
     set_font_size(playerChoiceFontSize)
-    set_font_name("noita.ttf")
+    set_font_name("fonts/noita.ttf")
     text_out(
         50,
         get_screen_height() - 70 - exitTextFontSize, 
@@ -536,7 +537,7 @@ def InteractableRender(var interactable: Interactable; var transparent: float)
     transparent *= interactable.interactTextTransparent
 
     set_font_size(interactTextFontSize)
-    set_font_name("noita.ttf")
+    set_font_name("fonts/noita.ttf")
     text_out(
         interactable.position.x - camera.screenPosition.x + interactable.interactTextOffset.x, 
         interactable.position.y - camera.screenPosition.y + interactable.interactTextOffset.y,
@@ -666,7 +667,7 @@ def dialogableRender(var dialogable: Dialogable)
     transparent *= dialogable.dialogTransparent
     
     set_font_size(dialogFontSize)
-    set_font_name("noita.ttf")
+    set_font_name("fonts/noita.ttf")
 
     for lineInd in range(dialogable.dialogLineInd + 1)
         if lineInd == length(dialogable.dialogText)
@@ -938,20 +939,38 @@ struct Storm
     wind: float2 = float2(100.0, 0.0)
     
     windDirChangeTimer: float = 0.0
-    windForceChangeTimer: float = 0.0
+    windForceChangeTimer: float = 10.0
+
+    windSound: SoundHandle <- create_managed_sound("sounds/fon_wind.mp3")
+    windSoundHandel: PlayingSoundHandle
+    windSoundVal: float = 1.0
+    windSoundValCof: float = 0.5
+    windSoundOn: bool = true
+
+    stormSound: SoundHandle <- create_managed_sound("sounds/fon_storm.mp3")
+    stormSoundHandel: PlayingSoundHandle
+    stormSoundVal: float = 0.0
+    stormSoundValCof: float = 0.5
+    stormSoundOn: bool = false
 
 def stormInit()
     storm.windDir = randVec()
 
+    storm.windSoundHandel = play_sound_loop(storm.windSound, storm.windSoundVal * storm.windSoundValCof, 0.5)
+    storm.stormSoundHandel = play_sound_loop(storm.stormSound, storm.stormSoundVal * storm.stormSoundValCof, 3.0)
+
 def stormUpdate(dt: float)
     windUpdate(dt)
+    dustsUpdate(dt)
+    grainsUpdate(dt)
 
-    // dust
-    if random_float(seed) < 0.001 * storm.windForce
-        addDust()
+    if !storm.windSoundOn && storm.windForce > 0.0
+        storm.windSoundOn = true
+    if storm.stormSoundOn && storm.windForce < 130.0
+        storm.stormSoundOn = false
 
-    // grain
     if storm.windForce > 130.0 
+        storm.stormSoundOn = true
         addDust()
         if storm.dustPerFrame != 100
             storm.dustPerFrame++
@@ -961,15 +980,18 @@ def stormUpdate(dt: float)
         elif storm.dustPerFrame > 10
             storm.dustPerFrame--
     else
-        if storm.dustPerFrame > 0 && random_float(seed) < 0.1
-            storm.dustPerFrame--
- 
+        if storm.dustPerFrame > 0 
+            if random_float(seed) < 0.1
+                storm.dustPerFrame--
+
+        if storm.windSoundOn
+            storm.windSoundOn = false
+        
+    if random_float(seed) < 0.001 * storm.windForce
+        addDust()
+
     for i in range(storm.dustPerFrame)
         addGrain()
-
-    // update
-    dustsUpdate(dt)
-    grainsUpdate(dt)
 
 def windUpdate(dt: float)
     storm.windDirChangeTimer -= dt
@@ -991,6 +1013,23 @@ def windUpdate(dt: float)
             storm.windForce += windForceOffset
 
         storm.wind = storm.windDir * storm.windForce
+
+    // sound
+    if storm.windSoundOn && storm.windSoundVal < 1.0
+        storm.windSoundVal += dt * 0.2
+        set_sound_volume(storm.windSoundHandel, storm.windSoundVal * storm.windSoundValCof)
+    elif !storm.windSoundOn && storm.windSoundVal > 0.0
+        storm.windSoundVal -= dt * 0.2
+        set_sound_volume(storm.windSoundHandel, storm.windSoundVal * storm.windSoundValCof)
+
+    if storm.stormSoundOn && storm.stormSoundVal < 1.0
+        storm.stormSoundVal += dt * 0.3
+        set_sound_volume(storm.stormSoundHandel, storm.stormSoundVal * storm.stormSoundValCof)
+    elif !storm.stormSoundOn && storm.stormSoundVal > 0.0
+        storm.stormSoundVal -= dt * 2.0
+        if storm.stormSoundVal < 0.0
+            storm.stormSoundVal = 0.0
+        set_sound_volume(storm.stormSoundHandel, storm.stormSoundVal * storm.stormSoundValCof)
 
 /*
 * ===============================================================================================================
@@ -1152,7 +1191,7 @@ def addFootprint(position: float2)
 
     var footprint: Footprint
     footprint.position = position
-    footprint.lifetimeStart = maxLifetimeFootprint * random_float(seed)
+    footprint.lifetimeStart = maxLifetimeFootprint * random_float(seed) + 0.1
     footprint.lifetime = footprint.lifetimeStart
     footprint.color = float3ToHex(hexToFloat3(titleFromPos(footprint.position).color) - footprintColorOffset)
  
@@ -1305,7 +1344,7 @@ let elfDialogos <- [{array<string>
         "А потом вспоминаю о министре Оригами с сотней верных ему големов и снова радуюсь, что свободен как ветер.";
         "Да и что это за жизнь, если нельзя все свои вещи собрать в мешок за десять минут?";
 
-        "В конце концов за свою жизнь я смог понять такие вещи, от которых у многих бы разболелась голова. Смог узнать куда больше, чем некоторые узнают за десятки лет.";
+        "В конце концов за свои путешествия я смог понять такие вещи, от которых у многих бы разболелась голова. Смог узнать куда больше, чем некоторые узнают за десятки лет.";
         "Например, если дразнить акулу ногой, она способна откусить её целиком за один раз. Это же не тривиальное знание. Оно происходит из уникального опыта.";
         "Или что на деревянном протезе можно передвигаться не хуже чем на родной ноге. И это даже не будет заметно.";
         "Да не пялься ты так на мою ногу. Я учусь на чужом опыте.";
