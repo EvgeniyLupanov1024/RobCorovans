@@ -177,7 +177,7 @@ let
     playerChoiceTwo: string = "[2] Я бы хотел ещё подождать корована. С тобой."
     
 def guiRender()
-    debugRender()
+    // debugRender()
     return
 
 def debugRender()
@@ -1375,8 +1375,14 @@ let
     gameName: string = "Rob Corovans"
     gameNameOffset: float2 = float2(getCenteringTextOffset(gameName, gameNameFontAvr), 150)
 
+    authorNameFontSize: float = 30.0
+    authorNameFontAvr: float = authorNameFontSize * 0.34375
+    authorName: string = "by jenforrr"
+    authorNameOffset: float2 = float2(getCenteringTextOffset(authorName, authorNameFontAvr), 300)
+
     introductionStartTimerMax: float = 4.1
-    introductionEndTimerMax: float = 10.0
+    introductionEndTimerAuthor: float = 6.0
+    introductionEndTimerMax: float = 11.2
 
 struct Introduction
     alive: bool = true
@@ -1385,6 +1391,9 @@ struct Introduction
     endTimer: float = 0.0
     gameNameVanishing: bool = false
     gameNameTransparent: float = 1.0
+
+    authorNameShow: bool = false
+    authorNameTransparent: float = 0.0
 
     sound: SoundHandle <- create_managed_sound("sounds/Geology_cut.mp3")
     soundPlaing: bool = false
@@ -1400,6 +1409,10 @@ def introductionUpdate(dt: float)
     if introduction.startTimer < introductionStartTimerMax
         introduction.startTimer += dt
         return
+
+    if introduction.endTimer >= introductionEndTimerAuthor && !introduction.authorNameShow
+        introduction.authorNameShow = true
+        introduction.authorNameTransparent = 1.0
 
     if introduction.endTimer < introductionEndTimerMax
         introduction.endTimer += dt
@@ -1424,6 +1437,9 @@ def introductionRender()
     set_font_size(gameNameFontSize)
     set_font_name("fonts/noita_main.ttf")
     text_out(gameNameOffset.x, gameNameOffset.y, gameName, 0xEE7744 + floatToTransparent(255.0 * introduction.gameNameTransparent))
+
+    set_font_size(authorNameFontSize)
+    text_out(authorNameOffset.x, authorNameOffset.y, authorName, 0xDDA277 + floatToTransparent(255.0 * introduction.authorNameTransparent * introduction.gameNameTransparent))
 
 /*
  * ===============================================================================================================
