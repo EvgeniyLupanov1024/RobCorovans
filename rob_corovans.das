@@ -1284,7 +1284,7 @@ let
     tutorialNextTextTimerMax: float = 3.0
 
 struct Tutorial
-    alive: bool = true
+    alive: bool = false
     transparent: float = 0.0
     vanishing: bool = false
 
@@ -1292,7 +1292,6 @@ struct Tutorial
     nextTextShow: bool = false
     nextTextTransparent: float = 0.0
 
-    // soundAccept: SoundHandle <- create_managed_sound("sounds/afro_drum.mp3")
     soundAccept: SoundHandle <- create_managed_sound("sounds/dum.mp3")
 
 def tutorialUpdate(dt: float)
@@ -1311,9 +1310,8 @@ def tutorialUpdate(dt: float)
 
     if tutorial.transparent == 1.0
         tutorial.nextTextTimer += dt
-
-    if tutorial.nextTextTimer > tutorialNextTextTimerMax
-        tutorial.nextTextShow = true
+        if tutorial.nextTextTimer > tutorialNextTextTimerMax
+            tutorial.nextTextShow = true
 
     if tutorial.nextTextShow
         tutorial.nextTextTransparent += dt * 0.5
@@ -1323,6 +1321,7 @@ def tutorialUpdate(dt: float)
     if get_key_down(VK_F) && tutorial.nextTextShow
         tutorial.vanishing = true
         play_sound(tutorial.soundAccept, 0.4, 0.55)
+        tutorial.nextTextShow = false
 
 def tutorialRender()
     if !tutorial.alive
@@ -1365,6 +1364,7 @@ def tutorialRender()
 
     // next
     text_out(tutorialNextTextOffset.x, tutorialNextTextOffset.y, tutorialNextText, colorNext)
+    
 /*
  * ===============================================================================================================
  *
@@ -1374,33 +1374,53 @@ def tutorialRender()
  */
 
 let
+    gameName: string = "Rob Corovans"
     gameNameFontSize: float = 120.0
     gameNameFontAvr: float = gameNameFontSize * 0.34375
-    gameName: string = "Rob Corovans"
     gameNameOffset: float2 = float2(getCenteringTextOffset(gameName, gameNameFontAvr), 150)
 
+    authorName: string = "by jenforrr"
     authorNameFontSize: float = 30.0
     authorNameFontAvr: float = authorNameFontSize * 0.34375
-    authorName: string = "by jenforrr"
     authorNameOffset: float2 = float2(getCenteringTextOffset(authorName, authorNameFontAvr), 300)
 
     introductionStartTimerMax: float = 4.1
     introductionEndTimerAuthor: float = 6.1
     introductionEndTimerMax: float = 11.2
 
+    sometimesText: string = "ОДНАЖДЫ В ПУСТЫНЕ..."
+    sometimesFontSize: float = 20.0
+
 struct Introduction
     alive: bool = true
 
     startTimer: float = 0.0
     endTimer: float = 0.0
+
     gameNameVanishing: bool = false
     gameNameTransparent: float = 1.0
 
     authorNameShow: bool = false
     authorNameTransparent: float = 0.0
 
+    sometimes: StaticInscription <- [[StaticInscription()
+        text = sometimesText,
+        fontSize = sometimesFontSize,
+        fontName = "fonts/noita.ttf",
+        position = float2(getCenteringTextOffset(sometimesText, sometimesFontSize * 0.6), get_screen_height() - 100),
+        color = 0xEECC77,
+
+        showTimerMax = 1.1,
+        vanishTimerMax = 5.7,
+        afterVanish = @@sometimesAfterVanish
+    ]]
+
     sound: SoundHandle <- create_managed_sound("sounds/Geology_cut.mp3")
     soundPlaing: bool = false
+
+def sometimesAfterVanish(var si: StaticInscription)
+    introduction.alive = false
+    debug("death!!")
 
 def introductionUpdate(dt: float)
     if !introduction.alive
@@ -1428,6 +1448,9 @@ def introductionUpdate(dt: float)
         if introduction.gameNameTransparent <= 0.0
             introduction.gameNameTransparent = 0.0
             introduction.gameNameVanishing = false
+            introduction.sometimes.alive = true
+
+    introduction.sometimes->update(dt)
 
 def introductionRender()
     if !introduction.alive
@@ -1444,6 +1467,8 @@ def introductionRender()
 
     set_font_size(authorNameFontSize)
     text_out(authorNameOffset.x, authorNameOffset.y, authorName, 0xDDA277 + floatToTransparent(255.0 * introduction.authorNameTransparent * introduction.gameNameTransparent))
+
+    introduction.sometimes->render()
 
 /*
  * ===============================================================================================================
@@ -1533,6 +1558,74 @@ def getSingCount(str: string): int
 
 def getStrPixelWidth(str: string; average: float): float
     return float(getSingCount(str)) * average
+
+struct StaticInscription
+    text: string
+    fontSize: float
+    fontName: string
+    position: float2
+    color: uint
+
+    transparent: float = 0.0
+    vanishing: bool = false
+    showing: bool = false
+
+    alive: bool = false
+    showTimer: float = 0.0
+    showTimerMax: float = 0.0
+    vanishTimer: float = 0.0
+    vanishTimerMax: float = 0.0
+    vanished: bool = false
+
+    show = @@showStaticInscription
+    vanish = @@vanishStaticInscription
+    afterVanish = @@afterVanishStaticInscription
+
+    update = @@staticInscriptionUpdate
+    render = @@staticInscriptionRender
+
+def showStaticInscription(var si: StaticInscription): void
+    si.vanishing = false
+    si.showing = true
+
+def vanishStaticInscription(var si: StaticInscription): void
+    si.showing = false
+    si.vanishing = true
+
+def afterVanishStaticInscription(var si: StaticInscription)
+    return
+
+def staticInscriptionUpdate(var si: StaticInscription; dt: float): void
+    if !si.alive
+        return
+
+    if si.vanishing && si.transparent > 0.0
+        si.transparent -= dt
+        if si.transparent < 0.0
+            si.transparent = 0.0
+            si.vanished = true
+            si->afterVanish()
+    elif si.showing && si.transparent < 1.0
+        si.transparent += dt
+        if si.transparent > 1.0
+            si.transparent = 1.0
+
+    if si.vanishTimer < si.vanishTimerMax && si.transparent == 1.0
+        si.vanishTimer += dt
+        if si.vanishTimer >= si.vanishTimerMax
+            si->vanish()
+    elif si.showTimer < si.showTimerMax && si.transparent == 0.0 && !si.vanished
+        si.showTimer += dt
+        if si.showTimer >= si.showTimerMax
+            si->show()
+
+def staticInscriptionRender(var si: StaticInscription): void
+    if !si.alive
+        return
+
+    set_font_size(si.fontSize)
+    set_font_name(si.fontName)
+    text_out(si.position.x, si.position.y, si.text, si.color + floatToTransparent(255.0 * si.transparent))
 
 /*
  * ===============================================================================================================
