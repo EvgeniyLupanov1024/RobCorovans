@@ -17,8 +17,8 @@ require daslib/debug        // uncomment for debug in VS Code
  */
 
 var 
-    isPause : bool = false
     seed: int4
+    haveIntro: bool = false
 
 [export]
 def initialize
@@ -32,12 +32,6 @@ def initialize
 def act(dt: float)
     if get_key(VK_ESCAPE)
         schedule_quit_game()
-
-    if get_key_down(VK_SPACE)
-        isPause = !isPause
-
-    if isPause
-        return
 
     sceneUpdate(dt)
 
@@ -79,11 +73,11 @@ def sceneInit()
     stormInit()
 
 def sceneUpdate(dt: float)
-    if tutorial.alive
+    if tutorial.alive && haveIntro
         tutorialUpdate(dt)
         return
 
-    if introduction.alive
+    if introduction.alive && haveIntro
         introductionUpdate(dt)
         if introduction.gameNameTransparent == 1.0
             return
@@ -101,13 +95,13 @@ def sceneUpdate(dt: float)
         endingUpdate(dt)
 
 def sceneRender()
-    if tutorial.alive
+    if tutorial.alive && haveIntro
         tutorialRender()
         return
 
     cameraRender()
 
-    if introduction.alive
+    if introduction.alive && haveIntro
         introductionRender()
         return
 
@@ -171,10 +165,10 @@ let
     exitTextLost: string = "Вы затерялись в песках"
     exitTextLostNote: string = "[нажмите F5, чтобы начать путишествие]"
 
-    playerChoiceFontSize: int = 20
-
     playerChoiceOne: string = "[1] Ты свободен, как птица. Мохнатая, четырёхлапая, метр семьдесят пять в холке птица."
     playerChoiceTwo: string = "[2] Я бы хотел ещё подождать корована. С тобой."
+    playerChoiceFontSize: int = 20
+    playerChoiceFontColor: uint = 0xFFEEDDCC
     
 def guiRender()
     // debugRender()
@@ -228,14 +222,14 @@ def playerChoiceRender()
         50,
         get_screen_height() - 70 - exitTextFontSize, 
         playerChoiceOne, 
-        exitTextFontColor
+        playerChoiceFontColor
     )
 
     text_out(
         50,
         get_screen_height() - 70, 
         playerChoiceTwo, 
-        exitTextFontColor
+        playerChoiceFontColor
     )
 
 def getCenteringTextOffset(str: string; avr: float): int
@@ -339,7 +333,7 @@ def playerChoice()
         player.choice = false
 
         elf.elfChoice = 1
-        elf.dialogCleanTimerMax = 5.0
+        elf.dialogCleanTimerMax = 2.0
         elf.vanishing = true
         elf.dialogVanishing = true
 
