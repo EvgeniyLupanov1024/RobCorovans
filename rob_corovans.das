@@ -164,8 +164,8 @@ let
     debugTextColor: uint = 0xEEDDAABB
 
     exitTextFontSize: int = 36
-    exitTextAvrWidth: float = float(exitTextFontSize) * 0.54
-    exitTextFontColor: uint = 0xFFEEDDCC
+    exitTextAvrWidth: float = float(exitTextFontSize) * 0.61
+    exitTextFontColor: uint = 0xFFDFC799
 
     exitTextBorder: string = "Затеряться в песках"
     exitTextLost: string = "Вы затерялись в песках"
@@ -195,7 +195,7 @@ def debugRender()
 
 def exitFromMapRender(transparent: float)
     set_font_size(exitTextFontSize)
-    set_font_name("fonts/Shadower.ttf")
+    set_font_name("fonts/noita.ttf")
     text_out(
         getCenteringTextOffset(exitTextBorder, exitTextAvrWidth),
         150, 
@@ -205,7 +205,7 @@ def exitFromMapRender(transparent: float)
 
 def lostInDesertRender()
     set_font_size(exitTextFontSize)
-    set_font_name("fonts/Shadower.ttf")
+    set_font_name("fonts/noita.ttf")
     text_out(
         getCenteringTextOffset(exitTextLost, exitTextAvrWidth),
         150, 
@@ -367,7 +367,6 @@ def getCosLookToObject(objPos: float2): float
     return (player.lookPoint.x * vToObj.x + player.lookPoint.y * vToObj.y)/(player.lookLen * distToObj)
 
 def playerRender()
-
     if player.maxPositionCoord > deathBorderArea
         lostInDesertRender()
         return
@@ -1284,7 +1283,7 @@ let
     tutorialNextTextTimerMax: float = 3.0
 
 struct Tutorial
-    alive: bool = false
+    alive: bool = true
     transparent: float = 0.0
     vanishing: bool = false
 
@@ -1410,8 +1409,8 @@ struct Introduction
         position = float2(getCenteringTextOffset(sometimesText, sometimesFontSize * 0.6), get_screen_height() - 100),
         color = 0xEECC77,
 
-        showTimerMax = 1.1,
-        vanishTimerMax = 5.7,
+        showTimerMax = 1.23,
+        vanishTimerMax = 6.1,
         afterVanish = @@sometimesAfterVanish
     ]]
 
@@ -1420,7 +1419,6 @@ struct Introduction
 
 def sometimesAfterVanish(var si: StaticInscription)
     introduction.alive = false
-    debug("death!!")
 
 def introductionUpdate(dt: float)
     if !introduction.alive
