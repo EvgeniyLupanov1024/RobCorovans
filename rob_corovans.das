@@ -244,16 +244,17 @@ def getCenteringTextOffset(str: string; avr: float): int
 
 let
     playerImg: ImageHandle <- create_managed_image("img/char/def.png")
-
-    playerImgScale = 1.7
-    playerImgCoefX = float(playerImg.width) * playerImgScale
-    playerImgCoefY = float(playerImg.height) * playerImgScale
+    playerImgScale: float = 3.8
+    playerImgCoefX: float = float(playerImg.width) * playerImgScale / 2.0
+    playerImgCoefY: float = float(playerImg.height) * playerImgScale / 2.0
 
 struct Player
     position: float2 = float2(0, 0)
     maxPositionCoord: float
     lookPoint : float2
     lookLen: float
+    lookCos: float
+    lookSin: float
     alive: bool = true
 
     maxMoveSpeed: float = 300.0
@@ -319,10 +320,11 @@ def playerSpeedUpdate()
         moveDir += float2(1.0, 0.0)
 
     moveDir = normalize(moveDir)
-
-    player.speed += moveDir * player.moveSpeed
+    if moveDir != float2(0.0, 0.0)
+        player.speed += player.moveSpeed * moveDir
     if storm.windForce > 130.0
         player.speed += storm.wind * 0.05
+
     if length(player.speed) > player.maxMoveSpeed
         player.speed = normalize(player.speed) * player.maxMoveSpeed
     player.speed *= 0.9
@@ -330,8 +332,8 @@ def playerSpeedUpdate()
 def playerLookUpdate()
     player.lookPoint = camera.screenPosition + get_mouse_position() - player.position
     player.lookLen = length(player.lookPoint)
-    if player.lookLen == 0.0
-        player.lookLen = 0.00001
+    player.lookCos = player.lookPoint.y / player.lookLen
+    player.lookSin = player.lookPoint.x / player.lookLen
 
 def playerChoice()
     if !player.choice
@@ -380,10 +382,8 @@ def playerRender()
     var playerTransparent: float = 255.0 * proximityToMapBorder(player.position, deepTransparentArea)
     
     let center = float2(player.position.x - camera.screenPosition.x, player.position.y - camera.screenPosition.y)
-    let lookCos = player.lookPoint.y / player.lookLen
-    let lookSin = player.lookPoint.x / player.lookLen
-    let dirX = float2(lookCos, -lookSin) * playerImgCoefX
-    let dirY = float2(lookSin, lookCos) * playerImgCoefY
+    let dirX = float2(player.lookCos, -player.lookSin) * playerImgCoefX
+    let dirY = float2(player.lookSin, player.lookCos) * playerImgCoefY
     draw_quad(
         playerImg, 
         center + dirX + dirY, 
@@ -522,7 +522,7 @@ def titleFromPos(pos: float2): Title
  */
 
 let
-    interactDist: float = titleSize * 2.5
+    interactDist: float = titleSize * 3.1
     interactTextOffset: float2 = float2(0.0, 30.0)
     interactTextFontSize: int = 16
     interactTextAvrWidth: float = float(interactTextFontSize) * 0.66
@@ -612,6 +612,7 @@ struct Dialogable: Interactable
     dialogText: array<string>
     dialogPrinting: bool = false
     dialogOffset: float2 = dialogOffset
+    dialogIndent: float2 = float2(0.0, 0.0)
     
     dialogLineInd: int = 0    
     dialogLetterInd: int = 0
@@ -723,8 +724,8 @@ def dialogableRender(var dialogable: Dialogable)
             letterInd = length(dialogable.dialogText[lineInd])
 
         text_out(
-            dialogable.position.x - camera.screenPosition.x + dialogable.dialogOffset.x, 
-            dialogable.position.y - camera.screenPosition.y + dialogable.dialogOffset.y + dialogLineHeight * float(lineInd),
+            dialogable.position.x - camera.screenPosition.x + dialogable.dialogOffset.x + dialogable.dialogIndent.x, 
+            dialogable.position.y - camera.screenPosition.y + dialogable.dialogOffset.y + dialogable.dialogIndent.y + dialogLineHeight * float(lineInd),
             slice(dialogable.dialogText[lineInd], 0, letterInd),
             0xEEDD77 + floatToTransparent(transparent)
         )
@@ -878,6 +879,11 @@ def corovanRender()
 let
     elfDialogCleanTimer: float = 100.0
 
+    elfImg: ImageHandle <- create_managed_image("img/elf/def.png")
+    elfImgScale: float = 3.8
+    elfImgScaleXY: float2 = float2(float(elfImg.width) * elfImgScale, float(elfImg.height) * elfImgScale)
+    elfImgOffset: float2 = float2(float(elfImg.width) * elfImgScale / 2.0, float(elfImg.height) * elfImgScale / 2.0)
+
 struct Elf: Dialogable
     override position: float2 = float2(600.0, -titleSize)
 
@@ -894,6 +900,8 @@ struct Elf: Dialogable
 
 def elfInit()
     elf.interactTextOffset.x -= getStrPixelWidth(elf.interactText, interactTextAvrWidth) / 2.0
+    elf.interactTextOffset.y += 20.0
+    elf.dialogIndent.y -= 25.0
 
 def elfUpdate(dt: float)
     elf->dialogableUpdate(dt)
@@ -910,11 +918,12 @@ def elfUpdate(dt: float)
 def elfRender()
     var transparent: float = getCosLookToObject(elf.position) * 125.0 + 125.0
     transparent *= elf.elfTransparent
-    fill_circle(
-        elf.position.x - camera.screenPosition.x, 
-        elf.position.y - camera.screenPosition.y, 
-        16.0, 
-        0xCCFFCC + floatToTransparent(transparent)
+    draw_image(
+        elfImg, 
+        elf.position.x - camera.screenPosition.x - elfImgOffset.x, 
+        elf.position.y - camera.screenPosition.y - elfImgOffset.y, 
+        0xFFFFFF + floatToTransparent(transparent), 
+        elfImgScaleXY
     )
 
     elf->dialogableRender()
