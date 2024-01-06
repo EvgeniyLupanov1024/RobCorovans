@@ -18,7 +18,6 @@ require daslib/debug        // uncomment for debug in VS Code
 
 var 
     seed: int4
-    haveIntro: bool = false
 
 [export]
 def initialize
@@ -73,11 +72,11 @@ def sceneInit()
     stormInit()
 
 def sceneUpdate(dt: float)
-    if tutorial.alive && haveIntro
+    if tutorial.alive
         tutorialUpdate(dt)
         return
 
-    if introduction.alive && haveIntro
+    if introduction.alive
         introductionUpdate(dt)
         if introduction.gameNameTransparent == 1.0
             return
@@ -95,13 +94,13 @@ def sceneUpdate(dt: float)
         endingUpdate(dt)
 
 def sceneRender()
-    if tutorial.alive && haveIntro
+    if tutorial.alive
         tutorialRender()
         return
 
     cameraRender()
 
-    if introduction.alive && haveIntro
+    if introduction.alive
         introductionRender()
         return
 
@@ -243,6 +242,13 @@ def getCenteringTextOffset(str: string; avr: float): int
  * ===============================================================================================================
  */
 
+let
+    playerImg: ImageHandle <- create_managed_image("img/char/def.png")
+
+    playerImgScale = 1.7
+    playerImgCoefX = float(playerImg.width) * playerImgScale
+    playerImgCoefY = float(playerImg.height) * playerImgScale
+
 struct Player
     position: float2 = float2(0, 0)
     maxPositionCoord: float
@@ -324,6 +330,8 @@ def playerSpeedUpdate()
 def playerLookUpdate()
     player.lookPoint = camera.screenPosition + get_mouse_position() - player.position
     player.lookLen = length(player.lookPoint)
+    if player.lookLen == 0.0
+        player.lookLen = 0.00001
 
 def playerChoice()
     if !player.choice
@@ -368,9 +376,22 @@ def playerRender()
     if player.choice
         playerChoiceRender()
 
-    var playerProximity: float = proximityToMapBorder(player.position, deepTransparentArea)
-    var playerTransparent: float = 255.0 * playerProximity
-    fill_circle(player.position.x - camera.screenPosition.x, player.position.y - camera.screenPosition.y, 16.0, 0xCCCCCC + floatToTransparent(playerTransparent))
+    let playerProximity: float = proximityToMapBorder(player.position, deepTransparentArea)
+    var playerTransparent: float = 255.0 * proximityToMapBorder(player.position, deepTransparentArea)
+    
+    let center = float2(player.position.x - camera.screenPosition.x, player.position.y - camera.screenPosition.y)
+    let lookCos = player.lookPoint.y / player.lookLen
+    let lookSin = player.lookPoint.x / player.lookLen
+    let dirX = float2(lookCos, -lookSin) * playerImgCoefX
+    let dirY = float2(lookSin, lookCos) * playerImgCoefY
+    draw_quad(
+        playerImg, 
+        center + dirX + dirY, 
+        center + dirX - dirY, 
+        center - dirX - dirY, 
+        center - dirX + dirY, 
+        0xFFFFFF + floatToTransparent(playerTransparent)
+    )
 
     if playerProximity < 1.0
         exitFromMapRender(256.0 - playerTransparent)
@@ -390,7 +411,7 @@ let
     deepTransparentArea: float = borderArea * 0.33
     deathBorderArea: float = halfMapSize + float(get_screen_width() / 2)
 
-    titleSize: float = 70.0
+    titleSize: float = 64.0
     titleNoise: float = 25.0
     titleCount: int = int(mapSize / titleSize)
 
@@ -1277,7 +1298,7 @@ let
     tutorialNextTextTimerMax: float = 3.0
 
 struct Tutorial
-    alive: bool = true
+    alive: bool = false
     transparent: float = 0.0
     vanishing: bool = false
 
@@ -1385,7 +1406,7 @@ let
     sometimesFontSize: float = 20.0
 
 struct Introduction
-    alive: bool = true
+    alive: bool = false
 
     startTimer: float = 0.0
     endTimer: float = 0.0
