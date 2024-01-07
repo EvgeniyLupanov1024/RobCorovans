@@ -447,8 +447,17 @@ def generateTitles()
 
         for iw in range(titleCount + 1)
             var title: Title
-            title.position = float2(wPosition + random_float(seed) * titleNoise, hPosition + random_float(seed) * titleNoise) 
             title.color = 0xCC9955 + uint(random_float(seed) * 16.0) * 0x000101
+            title.position = float2(wPosition + random_float(seed) * titleNoise, hPosition + random_float(seed) * titleNoise) 
+
+            if ih == 0
+                title.position.y -= titleNoise
+            elif ih == titleCount
+                title.position.y += titleNoise
+            if iw == 0
+                title.position.x -= titleNoise
+            elif iw == titleCount
+                title.position.x += titleNoise
 
             push(rowTitles, title)
             wPosition += titleSize
