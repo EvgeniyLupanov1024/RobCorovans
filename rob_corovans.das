@@ -411,7 +411,7 @@ let
     deathBorderArea: float = halfMapSize + float(get_screen_width() / 2)
 
     titleSize: float = 64.0
-    titleNoise: float = 25.0
+    titleNoise: float = 0.0
     titleCount: int = int(mapSize / titleSize)
 
     titleCountOverkill: int = 2
@@ -420,7 +420,7 @@ let
 
     titlePixelSize: int = 16
     mapPixelSize: int = titleCount * titlePixelSize
-    pixelToMapCoord: float = float(mapPixelSize) / mapSize
+    pixelToMapCoord: float = float(titlePixelSize) / titleSize
 
 struct Map
     titles: array<array<Title>>
@@ -550,12 +550,20 @@ def mapRender()
         for iw in range(startWIndexTitleScreen, endWIndexTitleScreen)
             var transparent: float = (getCosLookToObject(map.titles[ih][iw].position) - 1.0) * 20.0 / -2.0
 
-            fill_convex_polygon([[float2[4]
-                map.titles[ih][iw].position - camera.screenPosition; 
-                map.titles[ih + 1][iw].position - camera.screenPosition; 
-                map.titles[ih + 1][iw + 1].position - camera.screenPosition;
-                map.titles[ih][iw + 1].position - camera.screenPosition
-            ]], 0x000000 + floatToTransparent(transparent))
+            // fill_convex_polygon([[float2[4]
+            //     map.titles[ih][iw].position - camera.screenPosition; 
+            //     map.titles[ih + 1][iw].position - camera.screenPosition; 
+            //     map.titles[ih + 1][iw + 1].position - camera.screenPosition;
+            //     map.titles[ih][iw + 1].position - camera.screenPosition
+            // ]], 0x000000 + floatToTransparent(transparent))
+
+            fill_rect(
+                map.titles[ih][iw].position.x - camera.screenPosition.x,
+                map.titles[ih][iw].position.y - camera.screenPosition.y,
+                titleSize,
+                titleSize,
+                0x000000 + floatToTransparent(transparent)
+            )
 
 def proximityToMapBorder(objPos: float2; deep: float = 0.0): float
     let farthestCoord: float = max(abs(objPos.x), abs(objPos.y))
