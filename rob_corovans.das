@@ -422,16 +422,10 @@ let
     mapPixelSize: int = titleCount * titlePixelSize
     pixelToMapCoord: float = float(mapPixelSize) / mapSize
 
-    coneSize: int = get_screen_width() * 2
-    coneScale: float = 1.0
-    coneCoefX: float = float(coneSize) * coneScale / 2.0
-    coneCoefY: float = float(coneSize) * coneScale / 2.0
-
 struct Map
     titles: array<array<Title>>
     road: array<float2>
     img: ImageHandle
-    coneVisibility: ImageHandle
 
 struct Title
     position: float2
@@ -443,7 +437,6 @@ def generateMap()
     roadPaintTitle()
 
     makeImgMap()
-    makeConeVisibility()
 
 def generateTitles()
     var hPosition: float = -halfMapSize
@@ -524,23 +517,6 @@ def cutMapBorder()
         map.img |> set_pixel(0, i, 0x00000000)
         map.img |> set_pixel(lastPixInd, i, 0x00000000)
 
-def makeConeVisibility()
-    map.coneVisibility <- create_managed_image(coneSize, coneSize)
-
-    let half: float = float(coneSize / 2)
-    for y in range(half + 1.0)
-        let lastYInd = int(coneSize) - 1 - y
-        let oY: float = half - float(y)
-        for x in range(coneSize)
-            let oX: float = float(x) - half
-            if oX == 0.0 && oY == 0.0
-                continue
-
-            let cos: float = oX / sqrt(oX * oX + oY * oY)
-            let transparent: float = 20.0 * (-cos + 1.0) / 2.0
-            map.coneVisibility |> set_pixel(x, y, 0x000000 + floatToTransparent(transparent))
-            map.coneVisibility |> set_pixel(x, lastYInd, 0x000000 + floatToTransparent(transparent))
-
 def mapRender()
     draw_image_region(
         map.img, 
@@ -564,14 +540,6 @@ def mapRender()
     for ih in range(startHIndexTitleScreen, endHIndexTitleScreen)
         for iw in range(startWIndexTitleScreen, endWIndexTitleScreen)
             var transparent: float = (getCosLookToObject(map.titles[ih][iw].position) - 1.0) * 20.0 / -2.0
-            
-            // fill_rect(
-            //     map.titles[ih][iw].position.x - camera.screenPosition.x,
-            //     map.titles[ih][iw].position.y - camera.screenPosition.y,
-            //     titleSize,
-            //     titleSize,
-            //     0x000000 + floatToTransparent(transparent)
-            // )
 
             fill_convex_polygon([[float2[4]
                 map.titles[ih][iw].position - camera.screenPosition; 
@@ -579,18 +547,6 @@ def mapRender()
                 map.titles[ih + 1][iw + 1].position - camera.screenPosition;
                 map.titles[ih][iw + 1].position - camera.screenPosition
             ]], 0x000000 + floatToTransparent(transparent))
-
-    // let center = float2(player.position.x - camera.screenPosition.x, player.position.y - camera.screenPosition.y)
-    // let rotX = float2(player.lookCos, -player.lookSin) * coneCoefX
-    // let rotY = float2(player.lookSin, player.lookCos) * coneCoefY
-    // draw_quad(
-    //     map.coneVisibility, 
-    //     center + rotX - rotY, 
-    //     center - rotX - rotY, 
-    //     center - rotX + rotY, 
-    //     center + rotX + rotY, 
-    //     0xFFFFFFFF
-    // )
 
 def proximityToMapBorder(objPos: float2; deep: float = 0.0): float
     let farthestCoord: float = max(abs(objPos.x), abs(objPos.y))
