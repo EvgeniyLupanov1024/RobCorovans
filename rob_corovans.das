@@ -418,9 +418,20 @@ let
     titleCountOnScreenH: int = int(float(get_screen_height()) / titleSize) + titleCountOverkill * 2
     titleCountOnScreenW: int = int(float(get_screen_width()) / titleSize) + titleCountOverkill * 2
 
+    titlePixelSize: int = 16
+    mapPixelSize: int = titleCount * titlePixelSize
+    pixelToMapCoord: float = float(mapPixelSize) / mapSize
+
+    coneSize: int = get_screen_width() * 2
+    coneScale: float = 1.0
+    coneCoefX: float = float(coneSize) * coneScale / 2.0
+    coneCoefY: float = float(coneSize) * coneScale / 2.0
+
 struct Map
     titles: array<array<Title>>
     road: array<float2>
+    img: ImageHandle
+    coneVisibility: ImageHandle
 
 struct Title
     position: float2
@@ -429,7 +440,10 @@ struct Title
 def generateMap()
     generateTitles()
     generateRoad()
-    roadPaint()
+    roadPaintTitle()
+
+    makeImgMap()
+    makeConeVisibility()
 
 def generateTitles()
     var hPosition: float = -halfMapSize
@@ -468,7 +482,7 @@ def generateRoad()
         point.y -= titleSize
         map.road[i] = point
 
-def roadPaint()
+def roadPaintTitle()
     var colorOffset: float3 = float3(0.97, 0.94, 0.96)
     for row in map.titles
         for title in row
@@ -485,24 +499,98 @@ def roadPaint()
                 if (squareDistTo(title.position, wayPoint) < dist)
                     title.color = float3ToHex(hexToFloat3(title.color) * colorOffset)
 
+def makeImgMap()
+    map.img <- create_managed_image(mapPixelSize, mapPixelSize)
+
+    for rowInd in range(titleCount)
+        for titleInd in range(titleCount)
+            let proximity: float = proximityToMapBorder(map.titles[rowInd][titleInd].position + float2(titleSize / 2.0, titleSize / 2.0))
+            let transparent: float = 0.5 + proximity / 2.0
+            let color: uint = map.titles[rowInd][titleInd].color + floatToTransparent(255.0 * transparent)
+            let yOffset: int = rowInd * titlePixelSize          
+            let xOffset: int = titleInd * titlePixelSize
+
+            for y in range(titlePixelSize)
+                for x in range(titlePixelSize)
+                    map.img |> set_pixel(x + xOffset, y + yOffset, color)
+
+    cutMapBorder()    
+
+def cutMapBorder()
+    let lastPixInd = mapPixelSize - 1
+    for i in range(0, mapPixelSize)
+        map.img |> set_pixel(i, 0, 0x00000000)
+        map.img |> set_pixel(i, lastPixInd, 0x00000000)
+        map.img |> set_pixel(0, i, 0x00000000)
+        map.img |> set_pixel(lastPixInd, i, 0x00000000)
+
+def makeConeVisibility()
+    map.coneVisibility <- create_managed_image(coneSize, coneSize)
+
+    let half: float = float(coneSize / 2)
+    for y in range(half + 1.0)
+        let lastYInd = int(coneSize) - 1 - y
+        let oY: float = half - float(y)
+        for x in range(coneSize)
+            let oX: float = float(x) - half
+            if oX == 0.0 && oY == 0.0
+                continue
+
+            let cos: float = oX / sqrt(oX * oX + oY * oY)
+            let transparent: float = 20.0 * (-cos + 1.0) / 2.0
+            map.coneVisibility |> set_pixel(x, y, 0x000000 + floatToTransparent(transparent))
+            map.coneVisibility |> set_pixel(x, lastYInd, 0x000000 + floatToTransparent(transparent))
+
 def mapRender()
-    var startHIndexTitleScreen: int = max(int((camera.screenPosition.y + halfMapSize) / titleSize) - titleCountOverkill, 0)
-    var startWIndexTitleScreen: int = max(int((camera.screenPosition.x + halfMapSize) / titleSize) - titleCountOverkill, 0)
-    var endHIndexTitleScreen: int = min(titleCount, startHIndexTitleScreen + titleCountOnScreenH)
-    var endWIndexTitleScreen: int = min(titleCount, startWIndexTitleScreen + titleCountOnScreenW)
+    draw_image_region(
+        map.img, 
+        0.0, 
+        0.0, 
+        float4(
+            camera.screenPosition.x + halfMapSize,
+            camera.screenPosition.y + halfMapSize,
+            float(get_screen_width()),
+            float(get_screen_height())
+        ) * pixelToMapCoord,
+        0xFFFFFFFF, 
+        float2(get_screen_width(), get_screen_height())
+    )
+
+    let startHIndexTitleScreen: int = max(int((camera.screenPosition.y + halfMapSize) / titleSize) - titleCountOverkill, 0)
+    let startWIndexTitleScreen: int = max(int((camera.screenPosition.x + halfMapSize) / titleSize) - titleCountOverkill, 0)
+    let endHIndexTitleScreen: int = min(titleCount, startHIndexTitleScreen + titleCountOnScreenH)
+    let endWIndexTitleScreen: int = min(titleCount, startWIndexTitleScreen + titleCountOnScreenW)
 
     for ih in range(startHIndexTitleScreen, endHIndexTitleScreen)
         for iw in range(startWIndexTitleScreen, endWIndexTitleScreen)
-            var transparent: float = getCosLookToObject(map.titles[ih][iw].position) * 10.0 + 238.0
-            var proximity: float = proximityToMapBorder(map.titles[ih][iw].position)
-            transparent *= 0.5 + proximity / 2.0
+            var transparent: float = (getCosLookToObject(map.titles[ih][iw].position) - 1.0) * 20.0 / -2.0
             
+            // fill_rect(
+            //     map.titles[ih][iw].position.x - camera.screenPosition.x,
+            //     map.titles[ih][iw].position.y - camera.screenPosition.y,
+            //     titleSize,
+            //     titleSize,
+            //     0x000000 + floatToTransparent(transparent)
+            // )
+
             fill_convex_polygon([[float2[4]
                 map.titles[ih][iw].position - camera.screenPosition; 
                 map.titles[ih + 1][iw].position - camera.screenPosition; 
                 map.titles[ih + 1][iw + 1].position - camera.screenPosition;
                 map.titles[ih][iw + 1].position - camera.screenPosition
-            ]], map.titles[ih][iw].color + floatToTransparent(transparent))
+            ]], 0x000000 + floatToTransparent(transparent))
+
+    // let center = float2(player.position.x - camera.screenPosition.x, player.position.y - camera.screenPosition.y)
+    // let rotX = float2(player.lookCos, -player.lookSin) * coneCoefX
+    // let rotY = float2(player.lookSin, player.lookCos) * coneCoefY
+    // draw_quad(
+    //     map.coneVisibility, 
+    //     center + rotX - rotY, 
+    //     center - rotX - rotY, 
+    //     center - rotX + rotY, 
+    //     center + rotX + rotY, 
+    //     0xFFFFFFFF
+    // )
 
 def proximityToMapBorder(objPos: float2; deep: float = 0.0): float
     let farthestCoord: float = max(abs(objPos.x), abs(objPos.y))
