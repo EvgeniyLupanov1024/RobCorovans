@@ -7,7 +7,6 @@ require daslib/strings_boost
 options debugger            // uncomment for debug in VS Code
 require daslib/debug        // uncomment for debug in VS Code
 
-
 /*
  * ===============================================================================================================
  *
@@ -137,8 +136,8 @@ def cameraRender()
     grainsRender()
 
     playerRender()
-    elfRender()
     corovanRender()
+    elfRender()
 
     dustsRender()
 
@@ -382,14 +381,14 @@ def playerRender()
     var playerTransparent: float = 255.0 * proximityToMapBorder(player.position, deepTransparentArea)
     
     let center = float2(player.position.x - camera.screenPosition.x, player.position.y - camera.screenPosition.y)
-    let dirX = float2(player.lookCos, -player.lookSin) * playerImgCoefX
-    let dirY = float2(player.lookSin, player.lookCos) * playerImgCoefY
+    let rotX = float2(player.lookCos, -player.lookSin) * playerImgCoefX
+    let rotY = float2(player.lookSin, player.lookCos) * playerImgCoefY
     draw_quad(
         playerImg, 
-        center + dirX + dirY, 
-        center + dirX - dirY, 
-        center - dirX - dirY, 
-        center - dirX + dirY, 
+        center + rotX + rotY, 
+        center + rotX - rotY, 
+        center - rotX - rotY, 
+        center - rotX + rotY, 
         0xFFFFFF + floatToTransparent(playerTransparent)
     )
 
@@ -756,6 +755,7 @@ struct Corovaner: Dialogable
 
     moveSpeed: float = 3.0
     speed: float2
+    dir: float2 = float2(0.0, -1.0)
 
     stepLen: float = 60.0
     distToFootprint: float
@@ -764,14 +764,17 @@ struct Corovaner: Dialogable
     override interactText = "[F] грабить"
     override interact = @@corovanerInteract
 
-    override dialogCleanTimerMax = 13.0
+    override dialogCleanTimerMax = 10.0
     corovanerPhrase: string
+
+    img: ImageHandle
 
 def startCorovan()
     if corovan.isStart
         return
 
     var startPosition: float2 = map.road[0]
+    var imgInd = corovan.corovanStoryInd * 5 + 1
     for phrase in corovanDialogos[corovan.corovanStoryInd]
         var corovaner: Corovaner <- Corovaner()
         corovaner.position = startPosition
@@ -780,10 +783,13 @@ def startCorovan()
         corovaner.distToFootprint = random_float(seed) * corovaner.stepLen
 
         corovaner.interactTextOffset.x -= getStrPixelWidth(corovaner.interactText, interactTextAvrWidth) / 2.0
+        corovaner.interactTextOffset.y += 67.0 
         corovaner.corovanerPhrase = phrase
+        corovaner.img <- create_managed_image("img/corovaner/{imgInd}.png")
+        imgInd++
 
         emplace(corovan.corovaners, corovaner)
-        startPosition.y += titleSize * 2.5
+        startPosition.y += titleSize * 5.3
 
     corovan.isStart = true
     corovan.isRobbed = false
@@ -831,7 +837,7 @@ def corovanersUpdate(dt: float)
 
         // position
         corovaner.position += corovaner.speed * dt        
-        var moveDir: float2 = map.road[corovaner.wayPointIndex] - corovaner.position
+        let moveDir: float2 = map.road[corovaner.wayPointIndex] - corovaner.position
         if length(moveDir) < comeRange
             corovaner.wayPointIndex += 1
 
@@ -849,6 +855,8 @@ def corovanersUpdate(dt: float)
         // speed
         corovaner.speed += normalize(moveDir) * corovaner.moveSpeed
         corovaner.speed *= 0.9
+        if corovaner.speed != float2(0.0, 0.0)
+            corovaner.dir = normalize(corovaner.speed)
 
         corovaner->dialogableUpdate(dt)
         corovaner->InteractableUpdate(dt)
@@ -858,11 +866,17 @@ def corovanRender()
         var transparent: float = getCosLookToObject(corovaner.position) * 125.0 + 125.0
         transparent *= proximityToMapBorder(corovaner.position, deepTransparentArea)
 
-        fill_circle(
-            corovaner.position.x - camera.screenPosition.x, 
-            corovaner.position.y - camera.screenPosition.y, 
-            16.0, 
-            0xCCCCFF + floatToTransparent(transparent)
+        let imgScale = 3.8
+        let center = float2(corovaner.position.x - camera.screenPosition.x, corovaner.position.y - camera.screenPosition.y)
+        let rotX = float2(corovaner.dir.x, corovaner.dir.y) * float(corovaner.img.height) * imgScale / 2.0
+        let rotY = float2(corovaner.dir.y, -corovaner.dir.x) * float(corovaner.img.width) * imgScale / 2.0
+        draw_quad(
+            corovaner.img, 
+            center + rotX + rotY, 
+            center - rotX + rotY, 
+            center - rotX - rotY, 
+            center + rotX - rotY, 
+            0xFFFFFF + floatToTransparent(transparent)
         )
 
         corovaner->dialogableRender()
@@ -882,7 +896,7 @@ let
     elfImg: ImageHandle <- create_managed_image("img/elf/def.png")
     elfImgScale: float = 3.8
     elfImgScaleXY: float2 = float2(float(elfImg.width) * elfImgScale, float(elfImg.height) * elfImgScale)
-    elfImgOffset: float2 = float2(float(elfImg.width) * elfImgScale / 2.0, float(elfImg.height) * elfImgScale / 2.0)
+    elfImgOffset: float2 = elfImgScaleXY / 2.0
 
 struct Elf: Dialogable
     override position: float2 = float2(600.0, -titleSize)
