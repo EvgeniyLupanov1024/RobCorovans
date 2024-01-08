@@ -33,12 +33,12 @@ Rob Corovans
 
 ## Установка на windows
 
-Скрипт можно запустить среде dasbox. Сам дашбокс можно найти в [репозитории](https://github.com/imp5imp5/dasbox): архив `dasbox_portable.zip` в одном из [релизов](https://github.com/imp5imp5/dasbox/releases/tag/dasbox_portable_0_1_84). В архиве лежит сам dasbox.exe и папки с проектами.
+Скрипт можно запустить среде dasbox. Сам дашбокс можно найти в [репозитории](https://github.com/imp5imp5/dasbox): архив `dasbox_portable.zip` в одном из [релизов](https://github.com/imp5imp5/dasbox/releases/tag/dasbox_portable_0_1_84). В архиве лежит dasbox.exe и папки с проектами.
 
 Чтобы запустить игру, нужно: 
 - скачать и распаковать архив с dasbox
 - создать папку `projects` в одной директории с dasbox.exe
-- скачать файлы этого репозитория (кнопка `<>code` - `download zip`)
-- создать папку для игры
-- распаковать файлы архива в папку (`projects/RobCorovans/файлы игры`)
+- скачать файлы репозитория с игрой (этого репозитория: кнопка `<>code` - `download zip`)
+- создать папку для игры внутри директории `projects`
+- распаковать файлы архива в папку игры (`projects/RobCorovans/файлы игры` по аналогии с другими проектами)
 - запустить dasbox.exe  
