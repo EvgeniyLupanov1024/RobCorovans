@@ -406,6 +406,8 @@ def playerRender()
 let
     mapSize: float = 4000.0
     halfMapSize: float = mapSize / 2.0
+    globToMap: float2 = float2(halfMapSize, halfMapSize)
+
     borderArea: float = 300.0
     deepTransparentArea: float = borderArea * 0.33
     deathBorderArea: float = halfMapSize + float(get_screen_width() / 2)
@@ -420,7 +422,7 @@ let
 
     titlePixelSize: int = 16
     mapPixelSize: int = titleCount * titlePixelSize
-    pixelToMapCoord: float = float(titlePixelSize) / titleSize
+    mapCoordToPixel: float = float(titlePixelSize) / titleSize
 
 struct Map
     titles: array<array<Title>>
@@ -442,24 +444,27 @@ def generateMap()
 def generateTitles()
     var hPosition: float = -halfMapSize
 
-    for ih in range(titleCount + 1)
+    for rowInd in range(titleCount + 1)
         var wPosition: float = -halfMapSize
         var rowTitles: array<Title>
 
-        for iw in range(titleCount + 1)
+        for titleInd in range(titleCount + 1)
             var title: Title
-            title.color = 0xCC9955 + uint(random_float(seed) * 16.0) * 0x000101
             title.position = float2(wPosition, hPosition) 
             title.positionNoise = title.position + float2(random_float(seed) * titleNoise, random_float(seed) * titleNoise) 
 
-            if ih == 0
+            if rowInd == 0
                 title.positionNoise.y -= titleNoise
-            elif ih == titleCount
+            elif rowInd == titleCount
                 title.positionNoise.y += titleNoise
-            if iw == 0
+            if titleInd == 0
                 title.positionNoise.x -= titleNoise
-            elif iw == titleCount
+            elif titleInd == titleCount
                 title.positionNoise.x += titleNoise
+
+            let proximity: float = proximityToMapBorder(title.position + float2(titleSize / 2.0, titleSize / 2.0))
+            let transparent: float = 0.5 + proximity / 2.0
+            title.color = 0xCC9955 + uint(random_float(seed) * 16.0) * 0x000101 + floatToTransparent(255.0 * transparent)
 
             push(rowTitles, title)
             wPosition += titleSize
@@ -487,30 +492,28 @@ def generateRoad()
         map.road[i] = point
 
 def roadPaintTitle()
-    var colorOffset: float3 = float3(0.97, 0.94, 0.96)
+    var colorOffset: float4 = float4(1.0, 0.97, 0.94, 0.96)
     for row in map.titles
         for title in row
             for wayPoint in map.road
                 var dist: float = titleSize * 0.5
                 if (squareDistTo(title.positionNoise, wayPoint) < dist)
-                    title.color = float3ToHex(hexToFloat3(title.color) * colorOffset)
+                    title.color = float4ToHex(hexToFloat4(title.color) * colorOffset)
 
                 dist = titleSize
                 if (squareDistTo(title.positionNoise, wayPoint) < dist)
-                    title.color = float3ToHex(hexToFloat3(title.color) * colorOffset)
+                    title.color = float4ToHex(hexToFloat4(title.color) * colorOffset)
 
                 dist = titleSize * 1.5
                 if (squareDistTo(title.positionNoise, wayPoint) < dist)
-                    title.color = float3ToHex(hexToFloat3(title.color) * colorOffset)
+                    title.color = float4ToHex(hexToFloat4(title.color) * colorOffset)
 
 def makeImgMap()
     map.img <- create_managed_image(mapPixelSize, mapPixelSize)
 
     for rowInd in range(titleCount)
         for titleInd in range(titleCount)
-            let proximity: float = proximityToMapBorder(map.titles[rowInd][titleInd].position + float2(titleSize / 2.0, titleSize / 2.0))
-            let transparent: float = 0.5 + proximity / 2.0
-            let color: uint = map.titles[rowInd][titleInd].color + floatToTransparent(255.0 * transparent)
+            let color: uint = map.titles[rowInd][titleInd].color
             let yOffset: int = rowInd * titlePixelSize          
             let xOffset: int = titleInd * titlePixelSize
 
@@ -518,7 +521,79 @@ def makeImgMap()
                 for x in range(titlePixelSize)
                     map.img |> set_pixel(x + xOffset, y + yOffset, color)
 
+    makeMapFluidForm()
+    makeMapGrain()
     cutMapBorder()    
+
+def makeMapFluidForm()
+    let stepNum: int = 97
+    let titleCountInMap: int = titleCount * titleCount
+    var step: int = 0
+
+    for rowInd in range(titleCount)
+        for titleInd in range(titleCount)
+            step += stepNum
+            makeMapFluidFormOne(
+                (step % titleCountInMap) / titleCount, 
+                step % titleCount
+            )
+
+def makeMapFluidFormOne(rowNum: int; titleNum: int)
+    let coordTitle: int2 = int2((map.titles[rowNum][titleNum].position + globToMap) * mapCoordToPixel)
+    let color: uint = map.titles[rowNum][titleNum].color
+    let noise: float = 10.0
+
+    // top
+    let yLowTop: int = coordTitle.y
+    var yTop: int = yLowTop
+    for x in range(coordTitle.x, coordTitle.x + titlePixelSize)
+        yTop += int((random_float(seed) - 0.5) * noise)
+        for yPaint in range(yTop, yLowTop)
+            map.img |> set_pixel(x, yPaint, color)
+
+    // right
+    let xLowRight = coordTitle.x + titlePixelSize
+    var xRight: int = xLowRight
+    for y in range(yTop, coordTitle.y + titlePixelSize)
+        xRight += int((random_float(seed) - 0.5) * noise)
+        for xPaint in range(xLowRight, xRight)
+            map.img |> set_pixel(xPaint, y, color)
+
+    // left
+    let xLowLeft = coordTitle.x
+    var xLeft: int = xLowLeft
+    for y in range(coordTitle.y, coordTitle.y + titlePixelSize)
+        xLeft += int((random_float(seed) - 0.5) * noise)
+        for xPaint in range(xLeft, xLowLeft)
+            map.img |> set_pixel(xPaint, y, color)
+
+    // bottom
+    let yLowBottom: int = coordTitle.y + titlePixelSize
+    var yBottom: int = yLowBottom
+    for x in range(xLeft, xRight)
+        yBottom += int((random_float(seed) - 0.5) * noise)
+        for yPaint in range(yLowBottom, yBottom)
+            map.img |> set_pixel(x, yPaint, color)
+
+def makeMapGrain()
+    let noise: float = 30.0
+
+    for rowInd in range(titleCount)
+        for titleInd in range(titleCount)
+            let color: float4 = hexToFloat4(map.titles[rowInd][titleInd].color)
+            let yOffset: int = rowInd * titlePixelSize          
+            let xOffset: int = titleInd * titlePixelSize
+
+            for y in range(titlePixelSize)
+                for x in range(titlePixelSize)
+                    if random_int(seed) % 4 == 0
+                        let colorOffset: float4 = float4(
+                            0.0,
+                            (random_float(seed) - 0.5) * noise,  
+                            (random_float(seed) - 0.5) * noise,  
+                            (random_float(seed) - 0.5) * noise  
+                        )
+                        map.img |> set_pixel(x + xOffset, y + yOffset, float4ToHex(color + colorOffset))
 
 def cutMapBorder()
     let lastPixInd = mapPixelSize - 1
@@ -538,7 +613,7 @@ def mapRender()
             camera.screenPosition.y + halfMapSize,
             float(get_screen_width()),
             float(get_screen_height())
-        ) * pixelToMapCoord,
+        ) * mapCoordToPixel,
         0xFFFFFFFF, 
         float2(get_screen_width(), get_screen_height())
     )
@@ -1293,7 +1368,7 @@ def grainsRender(): void
 let
     maxCountFootprint: int = 1024
     maxLifetimeFootprint: float = 50.0
-    footprintColorOffset: float3 = float3(20.0, 30.0, 20.0)
+    footprintColorOffset: float4 = float4(0.0, 20.0, 30.0, 20.0)
  
 struct Footprints
     ring: Footprint[maxCountFootprint]
@@ -1315,7 +1390,10 @@ def addFootprint(position: float2)
     footprint.position = position
     footprint.lifetimeStart = maxLifetimeFootprint * random_float(seed) + 0.1
     footprint.lifetime = footprint.lifetimeStart
-    footprint.color = float3ToHex(hexToFloat3(titleFromPos(footprint.position).color) - footprintColorOffset)
+
+    var color = hexToFloat4(titleFromPos(footprint.position).color) - footprintColorOffset
+    color.x = 0.0
+    footprint.color = float4ToHex(color)
  
     footprints.ring[footprints.endInd] = footprint
     footprints.endInd++
@@ -1603,18 +1681,30 @@ def floatToTransparent(fTr: float): uint
     var fTrNorm: int = int(max(0.0, min(fTr, 255.0)))
     return uint(fTrNorm << 24)
 
-def hexToFloat3(color: uint): float3
-    return float3(
-        float(int(color) >> 16 % 256),
-        float((int(color) >> 8) % 256),
-        float(int(color) % 256)
+let twoIn24: int64 = int64(16777216)
+let twoIn16: int64 = int64(65536)
+let twoIn8: int64 = int64(256)
+
+def hexToFloat4(color: uint): float4
+    let intColor = int64(color)
+    return float4(
+        float(intColor / twoIn24 % twoIn8),
+        float(intColor / twoIn16 % twoIn8),
+        float(intColor / twoIn8 % twoIn8),
+        float(intColor % twoIn8)
     )
 
-def float3ToHex(color: float3): uint
+def float4ToHex(color: float4): uint
+    let a: int64 = int64(max(0.0, min(color.x, 255.0)))
+    let r: int64 = int64(max(0.0, min(color.y, 255.0)))
+    let g: int64 = int64(max(0.0, min(color.z, 255.0)))
+    let b: int64 = int64(max(0.0, min(color.w, 255.0)))
+
     return uint(
-        (int(color.x) << 16) +
-        (int(color.y) << 8) +
-        int(color.z)
+        a * twoIn24 +
+        r * twoIn16 +
+        g * twoIn8 +
+        b
     )
 
 def distTo(pos1: float2; pos2: float2): float
