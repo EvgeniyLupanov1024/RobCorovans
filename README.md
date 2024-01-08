@@ -1,10 +1,10 @@
 Rob Corovans
 ============
 
-- [Описание](#%EE%EF%E8%F1%E0%ED%E8%E5)
+- [Описание](#описание)
 - [UserStory](#userstory)
-- [Фичи](#%F4%E8%F7%E8)
-- [Установка на windows](#%F3%F1%F2%E0%ED%EE%E2%EA%E0-%ED%E0-windows)
+- [Фичи](#фичи)
+- [Установка на windows](#установка-на-windows)
 
 ## Описание
 
