@@ -4,8 +4,8 @@ require math
 require strings
 require daslib/strings_boost
 
-options debugger            // uncomment for debug in VS Code
-require daslib/debug        // uncomment for debug in VS Code
+// options debugger            // uncomment for debug in VS Code
+// require daslib/debug        // uncomment for debug in VS Code
 
 /*
  * ===============================================================================================================
@@ -342,7 +342,7 @@ def playerChoice()
         player.choice = false
 
         elf.elfChoice = 1
-        elf.dialogCleanTimerMax = 2.0
+        elf.dialogCleanTimerMax = 3.5
         elf.vanishing = true
         elf.dialogVanishing = true
 
@@ -1483,7 +1483,7 @@ let
     tutorialNextTextTimerMax: float = 3.0
 
 struct Tutorial
-    alive: bool = false
+    alive: bool = true
     transparent: float = 0.0
     vanishing: bool = false
 
@@ -1591,7 +1591,7 @@ let
     sometimesFontSize: float = 20.0
 
 struct Introduction
-    alive: bool = false
+    alive: bool = true
 
     startTimer: float = 0.0
     endTimer: float = 0.0
