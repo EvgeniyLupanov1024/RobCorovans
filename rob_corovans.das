@@ -1253,6 +1253,9 @@ def windUpdate(dt: float)
 * ===============================================================================================================
 */
 
+var
+    dustImg: ImageHandle <- create_managed_image("img/dust/def.png")
+
 struct Dust
     position: float2
     distanceWented: float = 0.0
@@ -1262,6 +1265,8 @@ struct Dust
 
     transparent: float = 0.0
     alive: bool = false
+
+    imgSize: float = float(dustImg.width) * 2.0
 
 def addDust(): void
     var dust: Dust <- Dust()
@@ -1284,8 +1289,9 @@ def dustsUpdate(dt: float): void
         if !dust.alive
             continue
 
-        dust.position += dust.speed * dt
-        dust.distanceWented += length(dust.speed * dt)
+        var dist = dust.speed * dt
+        dust.position += dist
+        dust.distanceWented += length(dist)
 
         if dust.distanceWented < dust.maxDistanceStart
             dust.transparent = dust.distanceWented / dust.maxDistanceStart
@@ -1300,15 +1306,15 @@ def dustsRender(): void
         if !dust.alive
             continue
 
-        // var transparent: float = (getCosLookToObject(dust.position) + 1.5) * 128.0 * dust.transparent
-        var transparent: float = (getCosLookToObject(dust.position) + 1.5) * 50.0 * dust.transparent
-        fill_rect(
+        var transparent: float = (getCosLookToObject(dust.position) + 1.5) * 80.0 * dust.transparent
+
+        draw_image(
+            dustImg, 
             dust.position.x - camera.screenPosition.x, 
             dust.position.y - camera.screenPosition.y, 
-            100.0, 
-            100.0, 
-            0xEEEEBB + floatToTransparent(transparent)
-        )
+            0xF9E0CA + floatToTransparent(transparent), 
+            dust.imgSize
+        )        
 
 /*
 * ===============================================================================================================
