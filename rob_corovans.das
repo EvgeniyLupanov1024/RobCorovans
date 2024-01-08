@@ -1349,7 +1349,7 @@ def grainsRender(): void
             continue
 
         var transparent: float = (getCosLookToObject(grain.position) + 1.5) * 128.0 * grain.transparent
-        
+
         fill_rect(
             grain.position.x - camera.screenPosition.x, 
             grain.position.y - camera.screenPosition.y,
@@ -1425,16 +1425,19 @@ def footprintsUpdate(dt: float)
  
         footprints.ring[ind].lifetime -= dt
  
+let footprintSize: float = 6.0
 def footprintsRender()
     for ind in getFootprintIndices()
         var footprint: Footprint = footprints.ring[ind] 
         var transparent: float = getCosLookToObject(footprint.position) * 125.0 + 105.0
         transparent *= proximityToMapBorder(footprint.position)
         transparent *= footprint.lifetime / footprint.lifetimeStart
-        fill_circle(
-            footprint.position.x - camera.screenPosition.x, 
-            footprint.position.y - camera.screenPosition.y, 
-            7.0, 
+
+        fill_rect(
+            footprint.position.x - camera.screenPosition.x - footprintSize, 
+            footprint.position.y - camera.screenPosition.y - footprintSize,
+            footprintSize * 2.0,
+            footprintSize * 2.0,
             footprint.color + floatToTransparent(transparent)
         )
 
