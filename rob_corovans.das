@@ -411,7 +411,7 @@ let
     deathBorderArea: float = halfMapSize + float(get_screen_width() / 2)
 
     titleSize: float = 64.0
-    titleNoise: float = 0.0
+    titleNoise: float = 25.0
     titleCount: int = int(mapSize / titleSize)
 
     titleCountOverkill: int = 2
@@ -428,8 +428,9 @@ struct Map
     img: ImageHandle
 
 struct Title
-    position: float2
     color: uint
+    position: float2
+    positionNoise: float2
 
 def generateMap()
     generateTitles()
@@ -448,16 +449,17 @@ def generateTitles()
         for iw in range(titleCount + 1)
             var title: Title
             title.color = 0xCC9955 + uint(random_float(seed) * 16.0) * 0x000101
-            title.position = float2(wPosition + random_float(seed) * titleNoise, hPosition + random_float(seed) * titleNoise) 
+            title.position = float2(wPosition, hPosition) 
+            title.positionNoise = title.position + float2(random_float(seed) * titleNoise, random_float(seed) * titleNoise) 
 
             if ih == 0
-                title.position.y -= titleNoise
+                title.positionNoise.y -= titleNoise
             elif ih == titleCount
-                title.position.y += titleNoise
+                title.positionNoise.y += titleNoise
             if iw == 0
-                title.position.x -= titleNoise
+                title.positionNoise.x -= titleNoise
             elif iw == titleCount
-                title.position.x += titleNoise
+                title.positionNoise.x += titleNoise
 
             push(rowTitles, title)
             wPosition += titleSize
@@ -490,15 +492,15 @@ def roadPaintTitle()
         for title in row
             for wayPoint in map.road
                 var dist: float = titleSize * 0.5
-                if (squareDistTo(title.position, wayPoint) < dist)
+                if (squareDistTo(title.positionNoise, wayPoint) < dist)
                     title.color = float3ToHex(hexToFloat3(title.color) * colorOffset)
 
                 dist = titleSize
-                if (squareDistTo(title.position, wayPoint) < dist)
+                if (squareDistTo(title.positionNoise, wayPoint) < dist)
                     title.color = float3ToHex(hexToFloat3(title.color) * colorOffset)
 
                 dist = titleSize * 1.5
-                if (squareDistTo(title.position, wayPoint) < dist)
+                if (squareDistTo(title.positionNoise, wayPoint) < dist)
                     title.color = float3ToHex(hexToFloat3(title.color) * colorOffset)
 
 def makeImgMap()
@@ -546,20 +548,13 @@ def mapRender()
     let endHIndexTitleScreen: int = min(titleCount, startHIndexTitleScreen + titleCountOnScreenH)
     let endWIndexTitleScreen: int = min(titleCount, startWIndexTitleScreen + titleCountOnScreenW)
 
-    for ih in range(startHIndexTitleScreen, endHIndexTitleScreen)
-        for iw in range(startWIndexTitleScreen, endWIndexTitleScreen)
-            var transparent: float = (getCosLookToObject(map.titles[ih][iw].position) - 1.0) * 20.0 / -2.0
-
-            // fill_convex_polygon([[float2[4]
-            //     map.titles[ih][iw].position - camera.screenPosition; 
-            //     map.titles[ih + 1][iw].position - camera.screenPosition; 
-            //     map.titles[ih + 1][iw + 1].position - camera.screenPosition;
-            //     map.titles[ih][iw + 1].position - camera.screenPosition
-            // ]], 0x000000 + floatToTransparent(transparent))
+    for rowInd in range(startHIndexTitleScreen, endHIndexTitleScreen)
+        for titleInd in range(startWIndexTitleScreen, endWIndexTitleScreen)
+            var transparent: float = (getCosLookToObject(map.titles[rowInd][titleInd].positionNoise) - 1.0) * 20.0 / -2.0
 
             fill_rect(
-                map.titles[ih][iw].position.x - camera.screenPosition.x,
-                map.titles[ih][iw].position.y - camera.screenPosition.y,
+                map.titles[rowInd][titleInd].position.x - camera.screenPosition.x,
+                map.titles[rowInd][titleInd].position.y - camera.screenPosition.y,
                 titleSize,
                 titleSize,
                 0x000000 + floatToTransparent(transparent)
