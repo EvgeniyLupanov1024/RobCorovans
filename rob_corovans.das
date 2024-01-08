@@ -627,29 +627,12 @@ def mapRender()
         for titleInd in range(startWIndexTitleScreen, endWIndexTitleScreen)
             var transparent: float = (getCosLookToObject(map.titles[rowInd][titleInd].positionNoise) - 1.0) * 20.0 / -2.0
 
-            // fill_convex_polygon([{float2[4]
-            //     map.titles[rowInd][titleInd].positionNoise - camera.screenPosition,
-            //     map.titles[rowInd][titleInd + 1].positionNoise - camera.screenPosition,
-            //     map.titles[rowInd + 1][titleInd + 1].positionNoise - camera.screenPosition,
-            //     map.titles[rowInd + 1][titleInd].positionNoise - camera.screenPosition
-            // }],
-            // 0x000000 + floatToTransparent(transparent)
-            // )
-
             fill_convex_polygon([[float2[4]
                 map.titles[rowInd][titleInd].positionNoise - camera.screenPosition; 
                 map.titles[rowInd + 1][titleInd].positionNoise - camera.screenPosition; 
                 map.titles[rowInd + 1][titleInd + 1].positionNoise - camera.screenPosition;
                 map.titles[rowInd][titleInd + 1].positionNoise - camera.screenPosition
             ]], 0x000000 + floatToTransparent(transparent))
-
-            // fill_rect(
-            //     map.titles[rowInd][titleInd].position.x - camera.screenPosition.x,
-            //     map.titles[rowInd][titleInd].position.y - camera.screenPosition.y,
-            //     titleSize,
-            //     titleSize,
-            //     0x000000 + floatToTransparent(transparent)
-            // )
 
 def proximityToMapBorder(objPos: float2; deep: float = 0.0): float
     let farthestCoord: float = max(abs(objPos.x), abs(objPos.y))
@@ -1366,10 +1349,12 @@ def grainsRender(): void
             continue
 
         var transparent: float = (getCosLookToObject(grain.position) + 1.5) * 128.0 * grain.transparent
-        fill_circle(
+        
+        fill_rect(
             grain.position.x - camera.screenPosition.x, 
-            grain.position.y - camera.screenPosition.y, 
-            2.5, 
+            grain.position.y - camera.screenPosition.y,
+            4.0,
+            4.0,
             0xEEEEBB + floatToTransparent(transparent)
         )
 
