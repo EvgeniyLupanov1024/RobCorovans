@@ -523,6 +523,7 @@ def makeImgMap()
 
     makeMapFluidForm()
     makeMapGrain()
+    makeMapTornEdge()
     cutMapBorder()    
 
 def makeMapFluidForm()
@@ -595,13 +596,30 @@ def makeMapGrain()
                         )
                         map.img |> set_pixel(x + xOffset, y + yOffset, float4ToHex(color + colorOffset))
 
+def makeMapTornEdge()
+    let maxOffset: int = titlePixelSize / 2
+    var offset: int = maxOffset / 2
+
+    for sideInd in range(mapPixelSize)
+        let change: int = random_int(seed) % 3 - 1
+        if offset + change > maxOffset || offset + change < 0
+            offset -= change
+        else
+            offset += change
+
+        for deepInd in range(0, offset)
+            map.img |> set_pixel(sideInd, deepInd, 0x0)
+            map.img |> set_pixel(mapPixelSize - 1 - deepInd, sideInd, 0x0)
+            map.img |> set_pixel(mapPixelSize - 1 - sideInd, mapPixelSize - 1 - deepInd, 0x0)
+            map.img |> set_pixel(deepInd, mapPixelSize - 1 - sideInd, 0x0)
+
 def cutMapBorder()
     let lastPixInd = mapPixelSize - 1
     for i in range(0, mapPixelSize)
-        map.img |> set_pixel(i, 0, 0x00000000)
-        map.img |> set_pixel(i, lastPixInd, 0x00000000)
-        map.img |> set_pixel(0, i, 0x00000000)
-        map.img |> set_pixel(lastPixInd, i, 0x00000000)
+        map.img |> set_pixel(i, 0, 0x0)
+        map.img |> set_pixel(i, lastPixInd, 0x0)
+        map.img |> set_pixel(0, i, 0x0)
+        map.img |> set_pixel(lastPixInd, i, 0x0)
 
 def mapRender()
     draw_image_region(
