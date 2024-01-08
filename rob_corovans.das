@@ -463,7 +463,7 @@ def generateTitles()
                 title.positionNoise.x += titleNoise
 
             let proximity: float = proximityToMapBorder(title.position + float2(titleSize / 2.0, titleSize / 2.0))
-            let transparent: float = 0.5 + proximity / 2.0
+            let transparent: float = 0.6 * proximity + 0.4
             title.color = 0xCC9955 + uint(random_float(seed) * 16.0) * 0x000101 + floatToTransparent(255.0 * transparent)
 
             push(rowTitles, title)
