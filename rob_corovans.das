@@ -1266,7 +1266,7 @@ struct Dust
     transparent: float = 0.0
     alive: bool = false
 
-    imgSize: float = float(dustImg.width) * 2.0
+    imgSize: float = float(dustImg.width) * 4.0
 
 def addDust(): void
     var dust: Dust <- Dust()
@@ -1306,13 +1306,13 @@ def dustsRender(): void
         if !dust.alive
             continue
 
-        var transparent: float = (getCosLookToObject(dust.position) + 1.5) * 80.0 * dust.transparent
+        var transparent: float = (getCosLookToObject(dust.position) + 1.5) * 40.0 * dust.transparent
 
         draw_image(
             dustImg, 
             dust.position.x - camera.screenPosition.x, 
             dust.position.y - camera.screenPosition.y, 
-            0xF9E0CA + floatToTransparent(transparent), 
+            0xF9E8CA + floatToTransparent(transparent), 
             dust.imgSize
         )        
 
