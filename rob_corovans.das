@@ -17,6 +17,7 @@ require daslib/strings_boost
 
 var 
     seed: int4
+    enableIntro: bool = true
 
 [export]
 def initialize
@@ -71,11 +72,11 @@ def sceneInit()
     stormInit()
 
 def sceneUpdate(dt: float)
-    if tutorial.alive
+    if tutorial.alive && enableIntro
         tutorialUpdate(dt)
         return
 
-    if introduction.alive
+    if introduction.alive && enableIntro
         introductionUpdate(dt)
         if introduction.gameNameTransparent == 1.0
             return
@@ -93,13 +94,13 @@ def sceneUpdate(dt: float)
         endingUpdate(dt)
 
 def sceneRender()
-    if tutorial.alive
+    if tutorial.alive && enableIntro
         tutorialRender()
         return
 
     cameraRender()
 
-    if introduction.alive
+    if introduction.alive && enableIntro
         introductionRender()
         return
 
