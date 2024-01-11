@@ -17,7 +17,7 @@ require daslib/strings_boost
 
 var 
     seed: int4
-    enableIntro: bool = true
+    enableIntro: bool = false
 
 [export]
 def initialize
@@ -549,7 +549,11 @@ def makeMapFluidFormOne(rowNum: int; titleNum: int)
     let yLowTop: int = coordTitle.y
     var yTop: int = yLowTop
     for x in range(coordTitle.x, coordTitle.x + titlePixelSize)
-        yTop += int((random_float(seed) - 0.5) * noise)
+        let change: int = int((random_float(seed) - 0.5) * noise)
+        if change + yTop < yLowTop
+            yTop += change
+        else
+            yTop -= change
         for yPaint in range(yTop, yLowTop)
             map.img |> set_pixel(x, yPaint, color)
 
@@ -557,7 +561,11 @@ def makeMapFluidFormOne(rowNum: int; titleNum: int)
     let xLowRight = coordTitle.x + titlePixelSize
     var xRight: int = xLowRight
     for y in range(yTop, coordTitle.y + titlePixelSize)
-        xRight += int((random_float(seed) - 0.5) * noise)
+        let change: int = int((random_float(seed) - 0.5) * noise)
+        if change + xRight > xLowRight
+            xRight += change
+        else
+            xRight -= change
         for xPaint in range(xLowRight, xRight)
             map.img |> set_pixel(xPaint, y, color)
 
@@ -565,7 +573,11 @@ def makeMapFluidFormOne(rowNum: int; titleNum: int)
     let xLowLeft = coordTitle.x
     var xLeft: int = xLowLeft
     for y in range(coordTitle.y, coordTitle.y + titlePixelSize)
-        xLeft += int((random_float(seed) - 0.5) * noise)
+        let change: int = int((random_float(seed) - 0.5) * noise)
+        if change + xLeft < xLowLeft
+            xLeft += change
+        else
+            xLeft -= change
         for xPaint in range(xLeft, xLowLeft)
             map.img |> set_pixel(xPaint, y, color)
 
@@ -573,7 +585,11 @@ def makeMapFluidFormOne(rowNum: int; titleNum: int)
     let yLowBottom: int = coordTitle.y + titlePixelSize
     var yBottom: int = yLowBottom
     for x in range(xLeft, xRight)
-        yBottom += int((random_float(seed) - 0.5) * noise)
+        let change: int = int((random_float(seed) - 0.5) * noise)
+        if change + yBottom > yLowBottom
+            yBottom += change
+        else
+            yBottom -= change
         for yPaint in range(yLowBottom, yBottom)
             map.img |> set_pixel(x, yPaint, color)
 
