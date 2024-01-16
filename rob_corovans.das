@@ -17,7 +17,7 @@ require daslib/strings_boost
 
 var 
     seed: int4
-    enableIntro: bool = true
+    enableIntro: bool = false
 
 [export]
 def initialize
@@ -342,17 +342,17 @@ def playerChoice()
     if get_key(VK_1)
         player.choice = false
 
-        elf.elfChoice = 1
-        elf.dialogCleanTimerMax = 3.5
+        elf.goneChoice = 1
+        elf.dialog.cleanTimerMax = 3.5
         elf.vanishing = true
-        elf.dialogVanishing = true
+        elf.dialog.vanishing = true
 
     elif get_key(VK_2)
         player.choice = false
 
-        elf.elfChoice = 2
-        elf.dialogCleanTimerMax = 5.0
-        elf.dialogVanishing = true
+        elf.goneChoice = 2
+        elf.dialog.cleanTimerMax = 5.0
+        elf.dialog.vanishing = true
 
         storm.windForce = -0.0001
         storm.windForceChangeTimer = 10000.0
@@ -739,53 +739,53 @@ def InteractableRender(var interactable: Interactable; var transparent: float)
 /*
  * ===============================================================================================================
  *
- * DIALOGABLE
+ * TYPING TEXT
  *
  * ===============================================================================================================
  */
 
 let 
-    dialogOffset: float2 = float2(0.0, -55.0)
-    dialogFontSize: float = 20.0
-    dialogFontAvrWidth: float = dialogFontSize * 0.6
-    dialogLetterInLineMax: int = 45
-    dialogLineHeight: float = dialogFontSize * 1.5
+    typingTextOffset: float2 = float2(0.0, -55.0)
+    typingTextFontSize: float = 20.0
+    typingTextFontAvrWidth: float = typingTextFontSize * 0.6
+    typingTextLetterInLineMax: int = 45
+    typingTextLineHeight: float = typingTextFontSize * 1.5
 
-struct Dialogable: Interactable
-    override position: float2
+struct TypingText
+    position: float2
 
-    printDialog = @@printDialog
-    endPrintingDialog = @@endPrintingDialog
+    startPrinting = @@startTypingText
+    endPrinting = @@endTypingText
 
-    dialogText: array<string>
-    dialogPrinting: bool = false
-    dialogOffset: float2 = dialogOffset
-    dialogIndent: float2 = float2(0.0, 0.0)
+    text: array<string>
+    printing: bool = false
+    offset: float2 = typingTextOffset
+    indent: float2 = float2(0.0, 0.0)
     
-    dialogLineInd: int = 0    
-    dialogLetterInd: int = 0
-    dialogLetterTimer: float = 0.0
-    dialogLetterTimerMax: float = 0.03
+    lineInd: int = 0    
+    letterInd: int = 0
+    letterTimer: float = 0.0
+    letterTimerMax: float = 0.03
 
-    dialogCleanTimer: float = 0.0
-    dialogCleanTimerMax: float = 20.0
-    dialogVanishing: bool = false
-    dialogTransparent: float = 1.0
+    cleanTimer: float = 0.0
+    cleanTimerMax: float = 20.0
+    vanishing: bool = false
+    transparent: float = 1.0
 
-    dialogableUpdate = @@dialogableUpdate
-    dialogableRender = @@dialogableRender
+    update = @@typingTextUpdate
+    render = @@typingTextRender
 
-def printDialog(var dialogable: Dialogable; str: string)
-    dialogable.dialogPrinting = true
-    dialogable.dialogLineInd = 0
-    dialogable.dialogLetterInd = 0
+def startTypingText(var typingText: TypingText; str: string)
+    typingText.printing = true
+    typingText.lineInd = 0
+    typingText.letterInd = 0
 
-    dialogable.dialogVanishing = false
-    dialogable.dialogTransparent = 1.0
-    clear(dialogable.dialogText)
+    typingText.vanishing = false
+    typingText.transparent = 1.0
+    clear(typingText.text)
 
     var startInd: int = 0
-    var lastSpaceInd: int = dialogLetterInLineMax
+    var lastSpaceInd: int = typingTextLetterInLineMax
     var utf: bool = false
     var singCoutn: int = 0
     var singCoutnBeforeSpace: int = 0
@@ -804,77 +804,77 @@ def printDialog(var dialogable: Dialogable; str: string)
             singCoutnBeforeSpace = singCoutn
 
         singCoutn++
-        if singCoutn > dialogLetterInLineMax
-            push(dialogable.dialogText, slice(str, startInd, lastSpaceInd))
+        if singCoutn > typingTextLetterInLineMax
+            push(typingText.text, slice(str, startInd, lastSpaceInd))
             singCoutn -= singCoutnBeforeSpace 
             startInd = lastSpaceInd + 1
 
-    push(dialogable.dialogText, slice(str, startInd, length(str)))
-    dialogable.dialogOffset.y = dialogOffset.y - dialogLineHeight * float(length(dialogable.dialogText) - 1)
-    if length(dialogable.dialogText) == 1
-        dialogable.dialogOffset.x = dialogOffset.x - getStrPixelWidth(dialogable.dialogText[0], dialogFontAvrWidth) / 2.0
+    push(typingText.text, slice(str, startInd, length(str)))
+    typingText.offset.y = typingTextOffset.y - typingTextLineHeight * float(length(typingText.text) - 1)
+    if length(typingText.text) == 1
+        typingText.offset.x = typingTextOffset.x - getStrPixelWidth(typingText.text[0], typingTextFontAvrWidth) / 2.0
     else 
-        dialogable.dialogOffset.x = dialogOffset.x - (dialogFontAvrWidth * float(dialogLetterInLineMax / 2))
+        typingText.offset.x = typingTextOffset.x - (typingTextFontAvrWidth * float(typingTextLetterInLineMax / 2))
 
-def endPrintingDialog(var dialogable: Dialogable)
-    dialogable.dialogPrinting = false
-    dialogable.dialogLineInd = length(dialogable.dialogText)
-    dialogable.dialogLetterInd = 0
-    dialogable.dialogCleanTimer = dialogable.dialogCleanTimerMax
+def endTypingText(var typingText: TypingText)
+    typingText.printing = false
+    typingText.lineInd = length(typingText.text)
+    typingText.letterInd = 0
+    typingText.cleanTimer = typingText.cleanTimerMax
 
-def dialogableUpdate(var dialogable: Dialogable; dt: float)
-    if dialogable.dialogVanishing && dialogable.dialogTransparent >= 0.0
-        dialogable.dialogTransparent -= dt
+def typingTextUpdate(var typingText: TypingText; dt: float)
+    if typingText.vanishing && typingText.transparent >= 0.0
+        typingText.transparent -= dt
 
-    if dialogable.dialogCleanTimer > 0.0
-        dialogable.dialogCleanTimer -= dt
-        if dialogable.dialogCleanTimer <= 0.0
-            dialogable.dialogVanishing = true
+    if typingText.cleanTimer > 0.0
+        typingText.cleanTimer -= dt
+        if typingText.cleanTimer <= 0.0
+            typingText.vanishing = true
 
-    if !dialogable.dialogPrinting
+    if !typingText.printing
         return
 
-    dialogable.dialogLetterTimer -= dt
-    if dialogable.dialogLetterTimer > 0.0
+    typingText.letterTimer -= dt
+    if typingText.letterTimer > 0.0
         return
 
-    var ch: int = unsafe(character_uat(dialogable.dialogText[dialogable.dialogLineInd], dialogable.dialogLetterInd))
+    var ch: int = unsafe(character_uat(typingText.text[typingText.lineInd], typingText.letterInd))
     if ch > 128
-        dialogable.dialogLetterInd++
+        typingText.letterInd++
     elif ch == '.' || ch == '!' || ch == '?'
-        dialogable.dialogLetterTimer += dialogable.dialogLetterTimerMax * 5.0
+        typingText.letterTimer += typingText.letterTimerMax * 5.0
 
-    dialogable.dialogLetterTimer += dialogable.dialogLetterTimerMax
-    dialogable.dialogLetterInd++
-    if dialogable.dialogLetterInd == length(dialogable.dialogText[dialogable.dialogLineInd])
-        dialogable.dialogLineInd++
-        dialogable.dialogLetterInd = 0
-        if dialogable.dialogLineInd == length(dialogable.dialogText)
-            dialogable.dialogPrinting = false
-            dialogable.dialogCleanTimer = dialogable.dialogCleanTimerMax
+    typingText.letterTimer += typingText.letterTimerMax
+    typingText.letterInd++
+    if typingText.letterInd == length(typingText.text[typingText.lineInd])
+        typingText.lineInd++
+        typingText.letterInd = 0
+        if typingText.lineInd == length(typingText.text)
+            typingText.printing = false
+            typingText.cleanTimer = typingText.cleanTimerMax
 
-def dialogableRender(var dialogable: Dialogable)
-    var transparent: float = getCosLookToObject(dialogable.position) * 55.0 + 200.0
-    transparent *= proximityToMapBorder(dialogable.position, deepTransparentArea)
-    transparent *= dialogable.dialogTransparent
+def typingTextRender(var typingText: TypingText)
+    var transparent: float = getCosLookToObject(typingText.position) * 55.0 + 200.0
+    transparent *= proximityToMapBorder(typingText.position, deepTransparentArea)
+    transparent *= typingText.еransparent
     
-    set_font_size(dialogFontSize)
+    set_font_size(typingTextFontSize)
     set_font_name("fonts/noita.ttf")
 
-    for lineInd in range(dialogable.dialogLineInd + 1)
-        if lineInd == length(dialogable.dialogText)
+    for lineInd in range(typingText.lineInd + 1)
+        if lineInd == length(typingText.text)
             break
 
         var letterInd: int
-        if lineInd == dialogable.dialogLineInd
-            letterInd = dialogable.dialogLetterInd
+        if lineInd == typingText.lineInd
+            letterInd = typingText.letterInd
         else 
-            letterInd = length(dialogable.dialogText[lineInd])
+            letterInd = length(typingText.text[lineInd])
 
         text_out(
-            dialogable.position.x - camera.screenPosition.x + dialogable.dialogOffset.x + dialogable.dialogIndent.x, 
-            dialogable.position.y - camera.screenPosition.y + dialogable.dialogOffset.y + dialogable.dialogIndent.y + dialogLineHeight * float(lineInd),
-            slice(dialogable.dialogText[lineInd], 0, letterInd),
+            typingText.position.x - camera.screenPosition.x + typingText.offset.x + typingText.indent.x, 
+            typingText.position.y - camera.screenPosition.y + typingText.offset.y + typingText.indent.y + lineHeight * float(lineInd),
+            slice(typingText.text[lineInd], 0, letterInd),
             0xEEDD77 + floatToTransparent(transparent)
         )
 
@@ -889,15 +889,15 @@ def dialogableRender(var dialogable: Dialogable)
 let
     comeRange: float = titleSize / 2.0
 
-struct Corovan
+struct Corovan: Interactable
     isStart: bool = false
     isRobbed: bool = false
     corovaners: array<Corovaner>
 
-    corovanStoryInd: int = 0
+    storyInd: int = 0
 
-struct Corovaner: Dialogable
-    override position: float2
+struct Corovaner
+    position: float2
     wayPointIndex: int = 0
     alive: bool = true
     isRobbed: bool = false
@@ -910,11 +910,11 @@ struct Corovaner: Dialogable
     distToFootprint: float
     leftFootprint: bool = false
 
-    override interactText = "[F] грабить"
-    override interact = @@corovanerInteract
+    interactText = "[F] грабить"
+    interact = @@corovanerInteract
 
-    override dialogCleanTimerMax = 10.0
-    corovanerPhrase: string
+    dialog: TypingText <- TypingText()
+    phrase: string
 
     img: ImageHandle
 
@@ -923,8 +923,8 @@ def startCorovan()
         return
 
     var startPosition: float2 = map.road[0]
-    var imgInd = corovan.corovanStoryInd * 5 + 1
-    for phrase in corovanDialogos[corovan.corovanStoryInd]
+    var imgInd = corovan.storyInd * 5 + 1
+    for phrase in corovanDialogos[corovan.storyInd]
         var corovaner: Corovaner <- Corovaner()
         corovaner.position = startPosition
         corovaner.wayPointIndex = 0
@@ -933,7 +933,8 @@ def startCorovan()
 
         corovaner.interactTextOffset.x -= getStrPixelWidth(corovaner.interactText, interactTextAvrWidth) / 2.0
         corovaner.interactTextOffset.y += 67.0 
-        corovaner.corovanerPhrase = phrase
+        corovaner.dialog.cleanTimerMax = 10.0
+        corovaner.phrase = phrase
         corovaner.img <- create_managed_image("img/corovaner/{imgInd}.png")
         imgInd++
 
@@ -946,10 +947,10 @@ def startCorovan()
 def corovanerInteract(var interactable: Interactable)
     var pCorovaner: Corovaner? = unsafe(addr(unsafe(upcast<Corovaner> interactable)))
 
-    if (*pCorovaner).dialogPrinting
+    if (*pCorovaner).dialog.printing
         pCorovaner->endPrintingDialog()
     else
-        pCorovaner->printDialog((*pCorovaner).corovanerPhrase)
+        pCorovaner->printDialog((*pCorovaner).phrase)
         (*pCorovaner).isRobbed = true
 
 def corovanUpdate(dt: float)
@@ -967,14 +968,14 @@ def corovanUpdate(dt: float)
     corovan.isRobbed = isRobbedEveryone
 
     if corovan.isRobbed && corovan.isStart
-        elf.elfStoryInd++
-        elf.elfPhraseInd = 0
-        elf.dialogCleanTimerMax = elfDialogCleanTimer
+        elf.storyInd++
+        elf.phraseInd = 0
+        elf.dialog.cleanTimerMax = elfDialogCleanTimer
 
         corovan.isStart = false
-        corovan.corovanStoryInd++
-        if corovan.corovanStoryInd == length(corovanDialogos)
-            corovan.corovanStoryInd = 0
+        corovan.storyInd++
+        if corovan.storyInd == length(corovanDialogos)
+            corovan.storyInd = 0
 
 def corovanersUpdate(dt: float)
     for corovaner in corovan.corovaners
@@ -1007,7 +1008,7 @@ def corovanersUpdate(dt: float)
         if corovaner.speed != float2(0.0, 0.0)
             corovaner.dir = normalize(corovaner.speed)
 
-        corovaner->dialogableUpdate(dt)
+        corovaner.dialog->update(dt)
         corovaner->InteractableUpdate(dt)
 
 def corovanRender()
@@ -1028,7 +1029,7 @@ def corovanRender()
             0xFFFFFF + floatToTransparent(transparent)
         )
 
-        corovaner->dialogableRender()
+        corovaner.dialog->render()
         corovaner->InteractableRender(transparent)
 
 /*
@@ -1047,31 +1048,34 @@ let
     elfImgScaleXY: float2 = float2(float(elfImg.width) * elfImgScale, float(elfImg.height) * elfImgScale)
     elfImgOffset: float2 = elfImgScaleXY / 2.0
 
-struct Elf: Dialogable
-    override position: float2 = float2(600.0, -titleSize)
+struct Elf: Interactable
+    position: float2 = float2(600.0, -titleSize)
 
-    override interactText = "[F] говорить"
-    override interact = @@elfInteract
+    interactText = "[F] говорить"
+    interact = @@elfInteract
     
-    override dialogCleanTimerMax = elfDialogCleanTimer
-    elfStoryInd: int = 0
-    elfPhraseInd: int = 0
-    elfChoice: int = 0
+    dialog: TypingText <- TypingText()
+    storyInd: int = 0
+    phraseInd: int = 0
+    goneChoice: int = 0
+
     vanishing: bool = false
-    elfTransparent: float = 1.0
+    transparent: float = 1.0
     alive: bool = true
 
 def elfInit()
     elf.interactTextOffset.x -= getStrPixelWidth(elf.interactText, interactTextAvrWidth) / 2.0
     elf.interactTextOffset.y += 20.0
-    elf.dialogIndent.y -= 25.0
+
+    elf.dialog.cleanTimerMax = elfDialogCleanTimer
+    elf.dialog.indent.y -= 25.0
 
 def elfUpdate(dt: float)
-    elf->dialogableUpdate(dt)
+    elf.dialog->update(dt)
 
     if elf.vanishing
-        elf.elfTransparent -= dt * 0.15
-        if elf.elfTransparent <= 0.0
+        elf.transparent -= dt * 0.15
+        if elf.transparent <= 0.0
             elf.alive = false
             elf.vanishing = false
 
@@ -1080,7 +1084,7 @@ def elfUpdate(dt: float)
 
 def elfRender()
     var transparent: float = getCosLookToObject(elf.position) * 125.0 + 125.0
-    transparent *= elf.elfTransparent
+    transparent *= elf.transparent
     draw_image(
         elfImg, 
         elf.position.x - camera.screenPosition.x - elfImgOffset.x, 
@@ -1089,39 +1093,39 @@ def elfRender()
         elfImgScaleXY
     )
 
-    elf->dialogableRender()
+    elf.dialog->render()
     elf->InteractableRender(transparent)
 
 def elfInteract(var interactable: Interactable)
-    if elf.dialogPrinting
+    if elf.dialog.printing
         elf->endPrintingDialog()
         return
     
     var phrase: string
-    if elf.elfPhraseInd == length(elfDialogos[elf.elfStoryInd])
-        if elf.elfStoryInd == 0
+    if elf.phraseInd == length(elfDialogos[elf.storyInd])
+        if elf.storyInd == 0
             phrase = "Потом договорим! Грабь КОРОВАНЫ!"
-        elif elf.elfStoryInd == 1
+        elif elf.storyInd == 1
             phrase = "Корованы не ждут."
-        elif elf.elfStoryInd == 2 && elf.elfChoice == 0
-            phrase = elfDialogos[elf.elfStoryInd][length(elfDialogos[elf.elfStoryInd]) - 1]
-        elif elf.elfStoryInd == 2 && elf.elfChoice == 1
+        elif elf.storyInd == 2 && elf.goneChoice == 0
+            phrase = elfDialogos[elf.storyInd][length(elfDialogos[elf.storyInd]) - 1]
+        elif elf.storyInd == 2 && elf.goneChoice == 1
             phrase = "Вжух......"
-        elif elf.elfStoryInd == 2 && elf.elfChoice == 2
+        elif elf.storyInd == 2 && elf.goneChoice == 2
             phrase = "Мур-мур-мяу"
         else
             phrase = "..."
     else
-        phrase = elfDialogos[elf.elfStoryInd][elf.elfPhraseInd]
-        elf.elfPhraseInd++
+        phrase = elfDialogos[elf.storyInd][elf.phraseInd]
+        elf.phraseInd++
     
     elf->printDialog(phrase)
-    if elf.elfPhraseInd == length(elfDialogos[elf.elfStoryInd])
-        if elf.elfStoryInd == 0 || elf.elfStoryInd == 1
+    if elf.phraseInd == length(elfDialogos[elf.storyInd])
+        if elf.storyInd == 0 || elf.storyInd == 1
             startCorovan()
-            elf.dialogCleanTimerMax = 10.0
+            elf.dialog.cleanTimerMax = 10.0
         
-        elif elf.elfStoryInd == 2 && elf.elfChoice == 0
+        elif elf.storyInd == 2 && elf.goneChoice == 0
             player.choice = true
 
 /*
@@ -1701,74 +1705,10 @@ def endingUpdate(dt: float)
 /*
  * ===============================================================================================================
  *
- * HELPERS
+ * STATIC INSCRIPTION
  *
  * ===============================================================================================================
  */
-
-def floatToTransparent(fTr: float): uint
-    var fTrNorm: int = int(max(0.0, min(fTr, 255.0)))
-    return uint(fTrNorm << 24)
-
-let twoIn24: int64 = int64(16777216)
-let twoIn16: int64 = int64(65536)
-let twoIn8: int64 = int64(256)
-
-def hexToFloat4(color: uint): float4
-    let intColor = int64(color)
-    return float4(
-        float(intColor / twoIn24 % twoIn8),
-        float(intColor / twoIn16 % twoIn8),
-        float(intColor / twoIn8 % twoIn8),
-        float(intColor % twoIn8)
-    )
-
-def float4ToHex(color: float4): uint
-    let a: int64 = int64(max(0.0, min(color.x, 255.0)))
-    let r: int64 = int64(max(0.0, min(color.y, 255.0)))
-    let g: int64 = int64(max(0.0, min(color.z, 255.0)))
-    let b: int64 = int64(max(0.0, min(color.w, 255.0)))
-
-    return uint(
-        a * twoIn24 +
-        r * twoIn16 +
-        g * twoIn8 +
-        b
-    )
-
-def distTo(pos1: float2; pos2: float2): float
-    return length(pos2 - pos1)
-
-def squareDistTo(pos1: float2; pos2: float2): float
-    var resVec = pos2 - pos1
-    return max(abs(resVec.x), abs(resVec.y))
-
-def randVec(): float2
-    return float2(
-        (random_float(seed) - 0.5) * 2.0,
-        (random_float(seed) - 0.5) * 2.0
-    )
-    
-def getSingCount(str: string): int
-    var singCoutn: int
-    var utf: bool = false
-
-    for ch in str
-        if utf
-            utf = false
-            singCoutn++
-            continue
-
-        if ch > 128
-            utf = true
-            continue
-
-        singCoutn++
-    
-    return singCoutn
-
-def getStrPixelWidth(str: string; average: float): float
-    return float(getSingCount(str)) * average
 
 struct StaticInscription
     text: string
@@ -1837,6 +1777,78 @@ def staticInscriptionRender(var si: StaticInscription): void
     set_font_size(si.fontSize)
     set_font_name(si.fontName)
     text_out(si.position.x, si.position.y, si.text, si.color + floatToTransparent(255.0 * si.transparent))
+
+/*
+ * ===============================================================================================================
+ *
+ * HELPERS
+ *
+ * ===============================================================================================================
+ */
+
+def floatToTransparent(fTr: float): uint
+    var fTrNorm: int = int(max(0.0, min(fTr, 255.0)))
+    return uint(fTrNorm << 24)
+
+let twoIn24: int64 = int64(16777216)
+let twoIn16: int64 = int64(65536)
+let twoIn8: int64 = int64(256)
+
+def hexToFloat4(color: uint): float4
+    let intColor = int64(color)
+    return float4(
+        float(intColor / twoIn24 % twoIn8),
+        float(intColor / twoIn16 % twoIn8),
+        float(intColor / twoIn8 % twoIn8),
+        float(intColor % twoIn8)
+    )
+
+def float4ToHex(color: float4): uint
+    let a: int64 = int64(max(0.0, min(color.x, 255.0)))
+    let r: int64 = int64(max(0.0, min(color.y, 255.0)))
+    let g: int64 = int64(max(0.0, min(color.z, 255.0)))
+    let b: int64 = int64(max(0.0, min(color.w, 255.0)))
+
+    return uint(
+        a * twoIn24 +
+        r * twoIn16 +
+        g * twoIn8 +
+        b
+    )
+
+def distTo(pos1: float2; pos2: float2): float
+    return length(pos2 - pos1)
+
+def squareDistTo(pos1: float2; pos2: float2): float
+    var resVec = pos2 - pos1
+    return max(abs(resVec.x), abs(resVec.y))
+
+def randVec(): float2
+    return float2(
+        (random_float(seed) - 0.5) * 2.0,
+        (random_float(seed) - 0.5) * 2.0
+    )
+    
+def getSingCount(str: string): int
+    var singCoutn: int
+    var utf: bool = false
+
+    for ch in str
+        if utf
+            utf = false
+            singCoutn++
+            continue
+
+        if ch > 128
+            utf = true
+            continue
+
+        singCoutn++
+    
+    return singCoutn
+
+def getStrPixelWidth(str: string; average: float): float
+    return float(getSingCount(str)) * average
 
 /*
  * ===============================================================================================================
