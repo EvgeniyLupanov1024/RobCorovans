@@ -336,11 +336,11 @@ def playerLookUpdate()
     player.lookSin = player.lookPoint.x / player.lookLen
 
 def playerChoice()
-    if !player.choice
+    if !player.choicing
         return
 
     if get_key(VK_1)
-        player.choice = false
+        player.choicing = false
 
         elf.goneChoice = 1
         elf.dialog.cleanTimerMax = 3.5
@@ -348,7 +348,7 @@ def playerChoice()
         elf.dialog.vanishing = true
 
     elif get_key(VK_2)
-        player.choice = false
+        player.choicing = false
 
         elf.goneChoice = 2
         elf.dialog.cleanTimerMax = 5.0
@@ -375,7 +375,7 @@ def playerRender()
         lostInDesertRender()
         return
 
-    if player.choice
+    if player.choicing
         playerChoiceRender()
 
     let playerProximity: float = proximityToMapBorder(player.position, deepTransparentArea)
@@ -681,8 +681,8 @@ struct Interactable
     interactTextTransparent: float = 0.0
     interactTextOffset: float2 = interactTextOffset
 
-    InteractableUpdate = @@InteractableUpdate
-    InteractableRender = @@InteractableRender
+    interactableUpdate = @@interactableUpdate
+    interactableRender = @@interactableRender
 
     interact = @@defaultInteract
 
@@ -712,7 +712,7 @@ def getNearestInteractable(): Interactable?
     unsafe
         return pNearestInteractable
 
-def InteractableUpdate(var interactable: Interactable; dt: float)
+def interactableUpdate(var interactable: Interactable; dt: float)
     if unsafe(addr(interactable)) != player.pCurInteractable
         if interactable.interactTextTransparent > 0.0
             interactable.interactTextTransparent = max(interactable.interactTextTransparent - dt * 4.0, 0.0)
@@ -724,7 +724,7 @@ def InteractableUpdate(var interactable: Interactable; dt: float)
     if get_key_down(VK_F)
         interactable->interact()
 
-def InteractableRender(var interactable: Interactable; var transparent: float)
+def interactableRender(var interactable: Interactable; var transparent: float)
     transparent *= interactable.interactTextTransparent
 
     set_font_size(interactTextFontSize)
@@ -910,8 +910,8 @@ struct Corovaner
     distToFootprint: float
     leftFootprint: bool = false
 
-    interactText = "[F] грабить"
-    interact = @@corovanerInteract
+    override interactText = "[F] грабить"
+    override interact = @@corovanerInteract
 
     dialog: TypingText <- TypingText()
     phrase: string
@@ -945,13 +945,13 @@ def startCorovan()
     corovan.isRobbed = false
 
 def corovanerInteract(var interactable: Interactable)
-    var pCorovaner: Corovaner? = unsafe(addr(unsafe(upcast<Corovaner> interactable)))
+    var corovaner: Corovaner& = unsafe(upcast<Corovaner> interactable)
 
-    if (*pCorovaner).dialog.printing
-        pCorovaner->endPrintingDialog()
+    if corovaner.dialog.printing
+        corovaner.dialog->endTypingText()
     else
-        pCorovaner->printDialog((*pCorovaner).phrase)
-        (*pCorovaner).isRobbed = true
+        corovaner->startTypingText(corovaner.phrase)
+        corovaner.isRobbed = true
 
 def corovanUpdate(dt: float)
     corovanersUpdate(dt)
@@ -1009,7 +1009,7 @@ def corovanersUpdate(dt: float)
             corovaner.dir = normalize(corovaner.speed)
 
         corovaner.dialog->update(dt)
-        corovaner->InteractableUpdate(dt)
+        corovaner->interactableUpdate(dt)
 
 def corovanRender()
     for corovaner in corovan.corovaners
@@ -1030,7 +1030,7 @@ def corovanRender()
         )
 
         corovaner.dialog->render()
-        corovaner->InteractableRender(transparent)
+        corovaner->interactableRender(transparent)
 
 /*
  * ===============================================================================================================
@@ -1051,8 +1051,8 @@ let
 struct Elf: Interactable
     position: float2 = float2(600.0, -titleSize)
 
-    interactText = "[F] говорить"
-    interact = @@elfInteract
+    override interactText = "[F] говорить"
+    override interact = @@elfInteract
     
     dialog: TypingText <- TypingText()
     storyInd: int = 0
@@ -1080,7 +1080,7 @@ def elfUpdate(dt: float)
             elf.vanishing = false
 
     if elf.alive
-        elf->InteractableUpdate(dt)
+        elf->interactableUpdate(dt)
 
 def elfRender()
     var transparent: float = getCosLookToObject(elf.position) * 125.0 + 125.0
@@ -1094,11 +1094,11 @@ def elfRender()
     )
 
     elf.dialog->render()
-    elf->InteractableRender(transparent)
+    elf->interactableRender(transparent)
 
 def elfInteract(var interactable: Interactable)
     if elf.dialog.printing
-        elf->endPrintingDialog()
+        elf.dialog->endTypingText()
         return
     
     var phrase: string
@@ -1117,16 +1117,17 @@ def elfInteract(var interactable: Interactable)
             phrase = "..."
     else
         phrase = elfDialogos[elf.storyInd][elf.phraseInd]
-        elf.phraseInd++
     
-    elf->printDialog(phrase)
-    if elf.phraseInd == length(elfDialogos[elf.storyInd])
+    elf->startTypingText(phrase)
+    if elf.phraseInd == length(elfDialogos[elf.storyInd]) - 1
         if elf.storyInd == 0 || elf.storyInd == 1
             startCorovan()
             elf.dialog.cleanTimerMax = 10.0
         
         elif elf.storyInd == 2 && elf.goneChoice == 0
-            player.choice = true
+            player.choicing = true
+
+    elf.phraseInd++
 
 /*
  * ===============================================================================================================
