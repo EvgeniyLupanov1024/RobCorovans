@@ -17,7 +17,7 @@ require daslib/strings_boost
 
 var 
     seed: int4
-    enableIntro: bool = false
+    enableIntro: bool = true
 
 [export]
 def initialize
@@ -267,7 +267,7 @@ struct Player
 
     pCurInteractable: Interactable? = null
 
-    choice: bool = false
+    choicing: bool = false
 
 def playerInit()
     player.distToFootprint = random_float(seed) * player.stepLen
@@ -754,8 +754,8 @@ let
 struct TypingText
     position: float2
 
-    startPrinting = @@startTypingText
-    endPrinting = @@endTypingText
+    startTypingText = @@startTypingText
+    endTypingText = @@endTypingText
 
     text: array<string>
     printing: bool = false
@@ -856,7 +856,7 @@ def typingTextUpdate(var typingText: TypingText; dt: float)
 def typingTextRender(var typingText: TypingText)
     var transparent: float = getCosLookToObject(typingText.position) * 55.0 + 200.0
     transparent *= proximityToMapBorder(typingText.position, deepTransparentArea)
-    transparent *= typingText.еransparent
+    transparent *= typingText.transparent
     
     set_font_size(typingTextFontSize)
     set_font_name("fonts/noita.ttf")
@@ -873,7 +873,7 @@ def typingTextRender(var typingText: TypingText)
 
         text_out(
             typingText.position.x - camera.screenPosition.x + typingText.offset.x + typingText.indent.x, 
-            typingText.position.y - camera.screenPosition.y + typingText.offset.y + typingText.indent.y + lineHeight * float(lineInd),
+            typingText.position.y - camera.screenPosition.y + typingText.offset.y + typingText.indent.y + typingTextLineHeight * float(lineInd),
             slice(typingText.text[lineInd], 0, letterInd),
             0xEEDD77 + floatToTransparent(transparent)
         )
@@ -889,15 +889,15 @@ def typingTextRender(var typingText: TypingText)
 let
     comeRange: float = titleSize / 2.0
 
-struct Corovan: Interactable
+struct Corovan
     isStart: bool = false
     isRobbed: bool = false
     corovaners: array<Corovaner>
 
     storyInd: int = 0
 
-struct Corovaner
-    position: float2
+struct Corovaner: Interactable
+    override position: float2
     wayPointIndex: int = 0
     alive: bool = true
     isRobbed: bool = false
@@ -950,7 +950,7 @@ def corovanerInteract(var interactable: Interactable)
     if corovaner.dialog.printing
         corovaner.dialog->endTypingText()
     else
-        corovaner->startTypingText(corovaner.phrase)
+        corovaner.dialog->startTypingText(corovaner.phrase)
         corovaner.isRobbed = true
 
 def corovanUpdate(dt: float)
@@ -1008,6 +1008,7 @@ def corovanersUpdate(dt: float)
         if corovaner.speed != float2(0.0, 0.0)
             corovaner.dir = normalize(corovaner.speed)
 
+        corovaner.dialog.position = corovaner.position
         corovaner.dialog->update(dt)
         corovaner->interactableUpdate(dt)
 
@@ -1049,7 +1050,7 @@ let
     elfImgOffset: float2 = elfImgScaleXY / 2.0
 
 struct Elf: Interactable
-    position: float2 = float2(600.0, -titleSize)
+    override position: float2 = float2(600.0, -titleSize)
 
     override interactText = "[F] говорить"
     override interact = @@elfInteract
@@ -1067,6 +1068,7 @@ def elfInit()
     elf.interactTextOffset.x -= getStrPixelWidth(elf.interactText, interactTextAvrWidth) / 2.0
     elf.interactTextOffset.y += 20.0
 
+    elf.dialog.position = elf.position
     elf.dialog.cleanTimerMax = elfDialogCleanTimer
     elf.dialog.indent.y -= 25.0
 
@@ -1117,17 +1119,16 @@ def elfInteract(var interactable: Interactable)
             phrase = "..."
     else
         phrase = elfDialogos[elf.storyInd][elf.phraseInd]
+        elf.phraseInd++
     
-    elf->startTypingText(phrase)
-    if elf.phraseInd == length(elfDialogos[elf.storyInd]) - 1
+    elf.dialog->startTypingText(phrase)
+    if elf.phraseInd == length(elfDialogos[elf.storyInd])
         if elf.storyInd == 0 || elf.storyInd == 1
             startCorovan()
             elf.dialog.cleanTimerMax = 10.0
         
         elif elf.storyInd == 2 && elf.goneChoice == 0
             player.choicing = true
-
-    elf.phraseInd++
 
 /*
  * ===============================================================================================================
@@ -1869,7 +1870,7 @@ let elfDialogos <- [{array<string>
         "Все корованы идут с юга и стекаются в город, чтобы торговать за стеной. Так же как и сотню лет назад. С теми, кто пришёл в город с севера. В Закрах.";
         "Закрах? О-о-о! Это настоящая крепость. Звёздчатые башни, стены высотой в пять домов. Их ещё при Золоматоре строили.";
         "Но тамошняя стража совсем отвыкла от налётов. Иногда я собираю команду и устраиваю рейд на южную стену и окрестности.";
-        "Сейчас буря отступила от стен города и укрыться от стражей больше негде. Так что приходиться грабить корованы вдали от города.";
+        "Сейчас буря отступила от стен крепости и укрыться от стражей больше негде. Так что приходиться грабить корованы вдали от города.";
 
         "Когда-то я тоже был корованщиком. Ходил туда-обратно. С юга на север и севера на юг. Даже бывал в городах севернее Закраха.";
         "Но мысли мои были заняты не ценами на ткани, не пустынным ветром, что сбивает с ног. Нет.";
@@ -1930,7 +1931,7 @@ let elfDialogos <- [{array<string>
         "Знаешь, мне нужно кое в чём тебе признаться.";
         "На самом деле я не эльф. Я КАДЖИТ. И зовут меня М’Айк.";
         "Серьёзно! Мы же в пустыне! Какие тут могут быть эльфы?!";
-        "Просто меня попросили побыть эльфом. Для тебя.";
+        "Просто меня попросили побыть эльфом.";
         "Нет, нет, я не жалуюсь. Кто-то же должен быть эльфом. Так уж всё устроено.";
         "Я при деле. И довольно приятном. Можно было бы даже сказать “непыльным”, если бы не... ну, ты знаешь.. песок. Он здесь повсюду. Даже в воздухе.";
         "Как-то так...";
